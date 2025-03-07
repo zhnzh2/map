@@ -1,12 +1,67 @@
 <!DOCTYPE html>
-<html>
-    <head>
-        <meta charset="utf=8">
-        <title>Pig Peng</title>
-        <link rel="icon" href="1.ico" type="image/x-icon">
-    </head>
-    <body>
-        <h1>这是标题</h1>
-        <p>这是正文</p>
-    </body>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>校内交通指引</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+        #map {
+            width: 80%;
+            height: 500px;
+            margin: 20px auto;
+            border: 1px solid #ccc;
+        }
+        .controls {
+            margin: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>校内交通指引</h1>
+    <div class="controls">
+        <label for="start">起点：</label>
+        <select id="start">
+            <option value="">选择起点</option>
+            <option value="A">地点A</option>
+            <option value="B">地点B</option>
+        </select>
+        <label for="end">终点：</label>
+        <select id="end">
+            <option value="">选择终点</option>
+            <option value="A">地点A</option>
+            <option value="B">地点B</option>
+        </select>
+        <button onclick="findRoute()">查询</button>
+    </div>
+    <img src="https://cdn.luogu.com.cn/upload/image_hosting/c6i14chq.png" alt="Big Boat">
+    <p id="result"></p>
+    
+    <script>
+        const routes = {
+            "A-B": { path: "A → B", time: "5分钟" },
+            "B-A": { path: "B → A", time: "5分钟" }
+        };
+        
+        function findRoute() {
+            const start = document.getElementById("start").value;
+            const end = document.getElementById("end").value;
+            const result = document.getElementById("result");
+            
+            if (start && end && start !== end) {
+                const routeKey = `${start}-${end}`;
+                if (routes[routeKey]) {
+                    result.innerHTML = `路径：${routes[routeKey].path} <br> 时间：${routes[routeKey].time}`;
+                } else {
+                    result.innerHTML = "暂无预设路径";
+                }
+            } else {
+                result.innerHTML = "请选择有效的起点和终点";
+            }
+        }
+    </script>
+</body>
 </html>
