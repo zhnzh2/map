@@ -9,58 +9,136 @@
             font-family: Arial, sans-serif;
             text-align: center;
         }
-        #map {
+        #map-container {
+            position: relative;
             width: 80%;
-            height: 500px;
+            max-width: 800px;
             margin: 20px auto;
-            border: 1px solid #ccc;
+        }
+        #map {
+            width: 100%;
+            height: auto;
+        }
+        .marker {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background-color: red;
+            border-radius: 50%;
+            cursor: pointer;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: white;
+            font-size: 14px;
+            font-weight: bold;
+            line-height: 20px;
+        }
+        .route-line {
+            position: absolute;
+            width: 2px;
+            background-color: blue;
+            transform-origin: top left;
         }
         .controls {
             margin: 10px;
+        }
+        .button {
+            padding: 8px 15px;
+            margin: 5px;
+            cursor: pointer;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
         }
     </style>
 </head>
 <body>
     <h1>校内交通指引</h1>
     <div class="controls">
-        <label for="start">起点：</label>
-        <select id="start">
-            <option value="">选择起点</option>
-            <option value="A">地点A</option>
-            <option value="B">地点B</option>
-        </select>
-        <label for="end">终点：</label>
-        <select id="end">
-            <option value="">选择终点</option>
-            <option value="A">地点A</option>
-            <option value="B">地点B</option>
-        </select>
-        <button onclick="findRoute()">查询</button>
+        <button class="button" onclick="findRoute()">查询</button>
     </div>
-    <img src="https://cdn.luogu.com.cn/upload/image_hosting/c6i14chq.png" alt="Big Boat">
-    <p id="result"></p>
+    <div id="map-container">
+        <img id="map" src="https://cdn.luogu.com.cn/upload/image_hosting/c6i14chq.png" alt="校园地图">
+        <div class="marker" style="top: 30%; left: 40%;" onclick="setPoint('A')">A</div>
+        <div class="marker" style="top: 60%; left: 70%;" onclick="setPoint('B')">B</div>
+        <div class="marker" style="top: 50%; left: 20%;" onclick="setPoint('C')">C</div>
+        <div class="marker" style="top: 80%; left: 50%;" onclick="setPoint('D')">D</div>
+        <div id="route-line" class="route-line" style="display: none;"></div>
+    </div>
+    <p id="result">请选择起点和终点</p>
     
     <script>
+        let selectedStart = "";
+        let selectedEnd = "";
+        
         const routes = {
             "A-B": { path: "A → B", time: "5分钟" },
-            "B-A": { path: "B → A", time: "5分钟" }
+            "B-A": { path: "B → A", time: "5分钟" },
+            "A-C": { path: "A → C", time: "7分钟" },
+            "C-A": { path: "C → A", time: "7分钟" },
+            "A-D": { path: "A → D", time: "8分钟" },
+            "D-A": { path: "D → A", time: "8分钟" },
+            "B-C": { path: "B → C", time: "6分钟" },
+            "C-B": { path: "C → B", time: "6分钟" },
+            "B-D": { path: "B → D", time: "6分钟" },
+            "D-B": { path: "D → B", time: "6分钟" },
+            "C-D": { path: "C → D", time: "4分钟" },
+            "D-C": { path: "D → C", time: "4分钟" }
         };
         
+        function setPoint(point) {
+            if (!selectedStart) {
+                selectedStart = point;
+            } else if (!selectedEnd) {
+                selectedEnd = point;
+            } else {
+                selectedStart = point;
+                selectedEnd = "";
+            }
+            document.getElementById("result").innerHTML = `起点: ${selectedStart || "未选择"}，终点: ${selectedEnd || "未选择"}`;
+        }
+        
         function findRoute() {
-            const start = document.getElementById("start").value;
-            const end = document.getElementById("end").value;
             const result = document.getElementById("result");
+            const routeLine = document.getElementById("route-line");
             
-            if (start && end && start !== end) {
-                const routeKey = `${start}-${end}`;
+            if (selectedStart && selectedEnd && selectedStart !== selectedEnd) {
+                const routeKey = `${selectedStart}-${selectedEnd}`;
                 if (routes[routeKey]) {
                     result.innerHTML = `路径：${routes[routeKey].path} <br> 时间：${routes[routeKey].time}`;
+                    drawRoute(selectedStart, selectedEnd);
                 } else {
                     result.innerHTML = "暂无预设路径";
+                    routeLine.style.display = "none";
                 }
             } else {
                 result.innerHTML = "请选择有效的起点和终点";
+                routeLine.style.display = "none";
             }
+        }
+        
+        function drawRoute(start, end) {
+            const startMarker = document.querySelector(`.marker[onclick="setPoint('${start}')"]`);
+            const endMarker = document.querySelector(`.marker[onclick="setPoint('${end}')"]`);
+            const routeLine = document.getElementById("route-line");
+            
+            const startX = startMarker.offsetLeft + startMarker.offsetWidth / 2;
+            const startY = startMarker.offsetTop + startMarker.offsetHeight / 2;
+            const endX = endMarker.offsetLeft + endMarker.offsetWidth / 2;
+            const endY = endMarker.offsetTop + endMarker.offsetHeight / 2;
+            
+            const dx = endX - startX;
+            const dy = endY - startY;
+            const length = Math.sqrt(dx * dx + dy * dy);
+            const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+            
+            routeLine.style.width = `${length}px`;
+            routeLine.style.height = "2px";
+            routeLine.style.transform = `rotate(${angle}deg)`;
+            routeLine.style.left = `${startX}px`;
+            routeLine.style.top = `${startY}px`;
+            routeLine.style.display = "block";
         }
     </script>
 </body>
