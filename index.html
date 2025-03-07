@@ -35,9 +35,11 @@
         }
         .route-line {
             position: absolute;
-            width: 2px;
+            width: 0; /* 初始宽度为 0 */
+            height: 2px;
             background-color: blue;
             transform-origin: top left;
+            transition: width 2s ease-in-out; /* 添加动画效果 */
         }
         .controls {
             margin: 10px;
@@ -51,27 +53,78 @@
             border: none;
             border-radius: 5px;
         }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+        }
+        .modal button {
+            padding: 8px 15px;
+            margin: 5px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+        }
     </style>
 </head>
 <body>
     <h1>校内交通指引</h1>
     <div class="controls">
+        <button class="button" onclick="openLocationModal('start')">选择起点</button>
+        <button class="button" onclick="openLocationModal('end')">选择终点</button>
         <button class="button" onclick="findRoute()">查询</button>
+        <button class="button" onclick="clearSelection()">清除</button>
     </div>
     <div id="map-container">
         <img id="map" src="https://cdn.luogu.com.cn/upload/image_hosting/c6i14chq.png" alt="校园地图">
-        <div class="marker" style="top: 30%; left: 40%;" onclick="setPoint('A')">A</div>
-        <div class="marker" style="top: 60%; left: 70%;" onclick="setPoint('B')">B</div>
-        <div class="marker" style="top: 50%; left: 20%;" onclick="setPoint('C')">C</div>
-        <div class="marker" style="top: 80%; left: 50%;" onclick="setPoint('D')">D</div>
+        <!-- 动态生成标记点 -->
+        <div class="marker" style="top: 30%; left: 40%;" onclick="openSelectionModal('A')">A</div>
+        <div class="marker" style="top: 60%; left: 70%;" onclick="openSelectionModal('B')">B</div>
+        <div class="marker" style="top: 50%; left: 20%;" onclick="openSelectionModal('C')">C</div>
+        <div class="marker" style="top: 80%; left: 50%;" onclick="openSelectionModal('D')">D</div>
         <div id="route-line" class="route-line" style="display: none;"></div>
     </div>
     <p id="result">请选择起点和终点</p>
-    
+
+    <!-- 弹窗 -->
+    <div class="overlay" id="overlay" onclick="closeModal()"></div>
+    <div class="modal" id="selection-modal">
+        <p>请选择操作：</p>
+        <button onclick="setPoint('start')">设为起点</button>
+        <button onclick="setPoint('end')">设为终点</button>
+    </div>
+    <div class="modal" id="location-modal">
+        <p>请选择一个地点：</p>
+        <button onclick="selectLocation('A')">地点 A</button>
+        <button onclick="selectLocation('B')">地点 B</button>
+        <button onclick="selectLocation('C')">地点 C</button>
+        <button onclick="selectLocation('D')">地点 D</button>
+    </div>
+
     <script>
         let selectedStart = "";
         let selectedEnd = "";
-        
+        let currentLocation = ""; // 当前点击的地点
+        let currentSelectionType = ""; // 当前选择的是起点还是终点
+
         const routes = {
             "A-B": { path: "A → B", time: "5分钟" },
             "B-A": { path: "B → A", time: "5分钟" },
@@ -86,23 +139,63 @@
             "C-D": { path: "C → D", time: "4分钟" },
             "D-C": { path: "D → C", time: "4分钟" }
         };
-        
-        function setPoint(point) {
-            if (!selectedStart) {
-                selectedStart = point;
-            } else if (!selectedEnd) {
-                selectedEnd = point;
-            } else {
-                selectedStart = point;
-                selectedEnd = "";
+
+        // 打开选择框（点击标记点时）
+        function openSelectionModal(location) {
+            currentLocation = location;
+            document.getElementById("overlay").style.display = "block";
+            document.getElementById("selection-modal").style.display = "block";
+        }
+
+        // 打开地点选择框（点击按钮时）
+        function openLocationModal(type) {
+            currentSelectionType = type;
+            document.getElementById("overlay").style.display = "block";
+            document.getElementById("location-modal").style.display = "block";
+        }
+
+        // 设置起点或终点
+        function setPoint(type) {
+            if (type === "start") {
+                selectedStart = currentLocation;
+            } else if (type === "end") {
+                selectedEnd = currentLocation;
             }
             document.getElementById("result").innerHTML = `起点: ${selectedStart || "未选择"}，终点: ${selectedEnd || "未选择"}`;
+            closeModal();
         }
-        
+
+        // 选择地点（通过按钮选择）
+        function selectLocation(location) {
+            if (currentSelectionType === "start") {
+                selectedStart = location;
+            } else if (currentSelectionType === "end") {
+                selectedEnd = location;
+            }
+            document.getElementById("result").innerHTML = `起点: ${selectedStart || "未选择"}，终点: ${selectedEnd || "未选择"}`;
+            closeModal();
+        }
+
+        // 关闭弹窗
+        function closeModal() {
+            document.getElementById("overlay").style.display = "none";
+            document.getElementById("selection-modal").style.display = "none";
+            document.getElementById("location-modal").style.display = "none";
+        }
+
+        // 清除选择
+        function clearSelection() {
+            selectedStart = "";
+            selectedEnd = "";
+            document.getElementById("result").innerHTML = "请选择起点和终点";
+            document.getElementById("route-line").style.display = "none";
+        }
+
+        // 查询路径
         function findRoute() {
             const result = document.getElementById("result");
             const routeLine = document.getElementById("route-line");
-            
+
             if (selectedStart && selectedEnd && selectedStart !== selectedEnd) {
                 const routeKey = `${selectedStart}-${selectedEnd}`;
                 if (routes[routeKey]) {
@@ -117,28 +210,34 @@
                 routeLine.style.display = "none";
             }
         }
-        
+
+        // 绘制路线
         function drawRoute(start, end) {
-            const startMarker = document.querySelector(`.marker[onclick="setPoint('${start}')"]`);
-            const endMarker = document.querySelector(`.marker[onclick="setPoint('${end}')"]`);
+            const startMarker = document.querySelector(`.marker[onclick="openSelectionModal('${start}')"]`);
+            const endMarker = document.querySelector(`.marker[onclick="openSelectionModal('${end}')"]`);
             const routeLine = document.getElementById("route-line");
-            
+
             const startX = startMarker.offsetLeft + startMarker.offsetWidth / 2;
             const startY = startMarker.offsetTop + startMarker.offsetHeight / 2;
             const endX = endMarker.offsetLeft + endMarker.offsetWidth / 2;
             const endY = endMarker.offsetTop + endMarker.offsetHeight / 2;
-            
+
             const dx = endX - startX;
             const dy = endY - startY;
             const length = Math.sqrt(dx * dx + dy * dy);
             const angle = Math.atan2(dy, dx) * (180 / Math.PI);
-            
-            routeLine.style.width = `${length}px`;
-            routeLine.style.height = "2px";
+
+            // 设置路线的初始状态
+            routeLine.style.width = "0";
             routeLine.style.transform = `rotate(${angle}deg)`;
             routeLine.style.left = `${startX}px`;
             routeLine.style.top = `${startY}px`;
             routeLine.style.display = "block";
+
+            // 使用 setTimeout 触发动画
+            setTimeout(() => {
+                routeLine.style.width = `${length}px`;
+            }, 10);
         }
     </script>
 </body>
