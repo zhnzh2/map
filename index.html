@@ -1,244 +1,480 @@
 <!DOCTYPE html>
 <html lang="zh">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>校内交通指引</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-        }
-        #map-container {
-            position: relative;
-            width: 80%;
-            max-width: 800px;
-            margin: 20px auto;
-        }
-        #map {
-            width: 100%;
-            height: auto;
-        }
-        .marker {
-            position: absolute;
-            width: 20px;
-            height: 20px;
-            background-color: red;
-            border-radius: 50%;
-            cursor: pointer;
-            transform: translate(-50%, -50%);
-            text-align: center;
-            color: white;
-            font-size: 14px;
-            font-weight: bold;
-            line-height: 20px;
-        }
-        .route-line {
-            position: absolute;
-            width: 0; /* 初始宽度为 0 */
-            height: 2px;
-            background-color: blue;
-            transform-origin: top left;
-            transition: width 2s ease-in-out; /* 添加动画效果 */
-        }
-        .controls {
-            margin: 10px;
-        }
-        .button {
-            padding: 8px 15px;
-            margin: 5px;
-            cursor: pointer;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            border-radius: 5px;
-        }
-        .modal {
-            display: none;
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background-color: white;
-            padding: 20px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-            z-index: 1000;
-        }
-        .modal button {
-            padding: 8px 15px;
-            margin: 5px;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        .overlay {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
-            z-index: 999;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>校内交通指引</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+    }
+    #map-container {
+      position: relative;
+      width: 80%;
+      max-width: 800px;
+      margin: 20px auto;
+      border: 1px solid #ccc;
+    }
+    #map {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    /* Canvas覆盖在地图上，用于绘制路径 */
+    #routeCanvas {
+      position: absolute;
+      left: 0;
+      top: 0;
+      z-index: 2;
+      pointer-events: none;
+    }
+    /* 建筑节点：大红色标记 */
+    .marker {
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      background-color: red;
+      border-radius: 50%;
+      cursor: pointer;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      color: white;
+      font-size: 12px;
+      font-weight: bold;
+      line-height: 20px;
+      padding: 0 3px;
+      z-index: 3;
+    }
+    /* 路口节点：小绿色标记，默认不显示 */
+    .intersection-marker {
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      background-color: green;
+      border-radius: 50%;
+      cursor: pointer;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      color: white;
+      font-size: 8px;      /* 较小字体 */
+      line-height: 12px;   /* 行高与高度匹配 */
+      z-index: 3;
+      display: none;
+    }
+    .controls {
+      margin: 10px;
+    }
+    .button {
+      padding: 8px 15px;
+      margin: 5px;
+      cursor: pointer;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 5px;
+    }
+    .modal, .select-modal {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background-color: white;
+      padding: 20px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      z-index: 1000;
+    }
+    .modal button, .select-modal button {
+      padding: 8px 15px;
+      margin: 5px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      z-index: 999;
+    }
+  </style>
 </head>
 <body>
-    <h1>校内交通指引</h1>
-    <div class="controls">
-        <button class="button" onclick="openLocationModal('start')">选择起点</button>
-        <button class="button" onclick="openLocationModal('end')">选择终点</button>
-        <button class="button" onclick="findRoute()">查询</button>
-        <button class="button" onclick="clearSelection()">清除</button>
-    </div>
-    <div id="map-container">
-        <img id="map" src="https://cdn.luogu.com.cn/upload/image_hosting/c6i14chq.png" alt="校园地图">
-        <!-- 动态生成标记点 -->
-        <div class="marker" style="top: 30%; left: 40%;" onclick="openSelectionModal('A')">A</div>
-        <div class="marker" style="top: 60%; left: 70%;" onclick="openSelectionModal('B')">B</div>
-        <div class="marker" style="top: 50%; left: 20%;" onclick="openSelectionModal('C')">C</div>
-        <div class="marker" style="top: 80%; left: 50%;" onclick="openSelectionModal('D')">D</div>
-        <div id="route-line" class="route-line" style="display: none;"></div>
-    </div>
-    <p id="result">请选择起点和终点</p>
+  <h1>校内交通指引</h1>
+  <div class="controls">
+    <button class="button" onclick="openSelectModal('start')">选择起点</button>
+    <button class="button" onclick="openSelectModal('end')">选择终点</button>
+    <button class="button" onclick="findRoute()">查询</button>
+    <button class="button" onclick="clearSelection()">清除</button>
+    <button class="button" onclick="toggleIntersections()">转换</button>
+  </div>
 
-    <!-- 弹窗 -->
-    <div class="overlay" id="overlay" onclick="closeModal()"></div>
-    <div class="modal" id="selection-modal">
-        <p>请选择操作：</p>
-        <button onclick="setPoint('start')">设为起点</button>
-        <button onclick="setPoint('end')">设为终点</button>
-    </div>
-    <div class="modal" id="location-modal">
-        <p>请选择一个地点：</p>
-        <button onclick="selectLocation('A')">地点 A</button>
-        <button onclick="selectLocation('B')">地点 B</button>
-        <button onclick="selectLocation('C')">地点 C</button>
-        <button onclick="selectLocation('D')">地点 D</button>
-    </div>
+  <div id="map-container">
+    <!-- 校园地图 -->
+    <img id="map" src="https://ustc.edu.cn/__local/E/1D/C2/D8FA8F6B58664E70A761F93FE7A_A2797589_73D4A.jpg" alt="校园地图">
+    <!-- Canvas 用于动态绘制路径 -->
+    <canvas id="routeCanvas"></canvas>
 
-    <script>
-        let selectedStart = "";
-        let selectedEnd = "";
-        let currentLocation = ""; // 当前点击的地点
-        let currentSelectionType = ""; // 当前选择的是起点还是终点
+    <!-- 显示建筑节点（红色，大） -->
+    <div class="marker" style="top: 40%; left: 55%;" onclick="openSelectionModal('Dorm4')">4</div>
+    <div class="marker" style="top: 42%; left: 77%;" onclick="openSelectionModal('Teach1')">一</div>
+    <div class="marker" style="top: 48%; left: 83%;" onclick="openSelectionModal('Teach2')">二</div>
+    <div class="marker" style="top: 29.5%; left: 85.5%;" onclick="openSelectionModal('Teach5')">五</div>
 
-        const routes = {
-            "A-B": { path: "A → B", time: "5分钟" },
-            "B-A": { path: "B → A", time: "5分钟" },
-            "A-C": { path: "A → C", time: "7分钟" },
-            "C-A": { path: "C → A", time: "7分钟" },
-            "A-D": { path: "A → D", time: "8分钟" },
-            "D-A": { path: "D → A", time: "8分钟" },
-            "B-C": { path: "B → C", time: "6分钟" },
-            "C-B": { path: "C → B", time: "6分钟" },
-            "B-D": { path: "B → D", time: "6分钟" },
-            "D-B": { path: "D → B", time: "6分钟" },
-            "C-D": { path: "C → D", time: "4分钟" },
-            "D-C": { path: "D → C", time: "4分钟" }
-        };
+    <!-- 路口节点（绿色，小，显示名称） -->
+    <div class="intersection-marker" style="top: 43%; left: 56.7%;" onclick="openSelectionModal('I1')">I1</div>
+    <div class="intersection-marker" style="top: 44.5%; left: 70%;" onclick="openSelectionModal('I2')">I2</div>
+    <div class="intersection-marker" style="top: 43.5%; left: 80%;" onclick="openSelectionModal('I3')">I3</div>
+    <div class="intersection-marker" style="top: 39.5%; left: 79.5%;" onclick="openSelectionModal('I4')">I4</div>
+    <div class="intersection-marker" style="top: 44.5%; left: 73.5%;" onclick="openSelectionModal('I5')">I5</div>
+    <div class="intersection-marker" style="top: 40%; left: 73.5%;" onclick="openSelectionModal('I6')">I6</div>
+    <div class="intersection-marker" style="top: 43%; left: 65%;" onclick="openSelectionModal('I7')">I7</div>
+    <div class="intersection-marker" style="top: 50%; left: 80%;" onclick="openSelectionModal('I8')">I8</div>
+    <div class="intersection-marker" style="top: 32%; left: 80%;" onclick="openSelectionModal('I9')">I9</div>
+    <div class="intersection-marker" style="top: 43%; left: 42%;" onclick="openSelectionModal('I10')">I10</div>
+    <div class="intersection-marker" style="top: 50%; left: 85%;" onclick="openSelectionModal('I11')">I11</div>
+    <div class="intersection-marker" style="top: 43.5%; left: 84%;" onclick="openSelectionModal('I12')">I12</div>
+    <div class="intersection-marker" style="top: 39.3%; left: 83.8%;" onclick="openSelectionModal('I13')">I13</div>
+  </div>
+  <p id="result">请选择起点和终点</p>
+  <p id="segment-info"></p>
 
-        // 打开选择框（点击标记点时）
-        function openSelectionModal(location) {
-            currentLocation = location;
-            document.getElementById("overlay").style.display = "block";
-            document.getElementById("selection-modal").style.display = "block";
+  <!-- 弹窗：点击建筑 marker 后，选择设为起点或终点（路口节点不可选） -->
+  <div class="overlay" id="overlay" onclick="closeModal()"></div>
+  <div class="modal" id="selection-modal">
+    <p>请选择操作：</p>
+    <button onclick="setPoint('start')">设为起点</button>
+    <button onclick="setPoint('end')">设为终点</button>
+  </div>
+  <!-- 弹窗：下拉菜单选择 -->
+  <div class="select-modal" id="select-modal">
+    <p id="select-label">请选择</p>
+    <select id="select-location"></select>
+    <br>
+    <button onclick="confirmSelect()">确认</button>
+  </div>
+
+  <script>
+    let selectedStart = "";
+    let selectedEnd = "";
+    let currentLocation = ""; // 当前点击的建筑节点（仅限建筑节点可选）
+    let currentSelectType = ""; // 当前下拉菜单选择的类型
+    let intersectionsVisible = false; // 默认不显示路口节点
+
+    // ----------------------------
+    // 定义完整的道路网络（包括建筑节点和路口节点）
+    // 建筑节点：Dorm4, Teach1, Teach2, Teach5（可选作为起点终点）
+    // 路口节点：I1～I8（示例，可根据需要扩充）
+    const roadNetwork = {
+      "Dorm4": ["I1", "I7"],
+      "Teach1": ["I2", "I8"],
+      "Teach2": ["I3", "I8"],
+      "Teach5": ["I4", "I7"],
+      "I1": ["Dorm4", "I2", "I7"],
+      "I2": ["I1", "Teach1", "I3"],
+      "I3": ["I2", "Teach2", "I4", "I8"],
+      "I4": ["I3", "Teach5", "I6"],
+      "I5": ["I7", "I8", "I6"],
+      "I6": ["I4", "I5"],
+      "I7": ["Dorm4", "I1", "Teach5", "I5"],
+      "I8": ["Teach1", "I3", "Teach2", "I5"]
+    };
+
+    // 为每个节点定义相对坐标（单位：百分比，相对于地图容器）
+    const nodeCoordinates = {
+      "Dorm4": { top: 40, left: 55 },
+      "Teach1": { top: 42, left: 77 },
+      "Teach2": { top: 48, left: 83 },
+      "Teach5": { top: 29.5, left: 85.5 },
+      "I1": { top: 43, left: 56.7 },
+      "I2": { top: 44.5, left: 70 },
+      "I3": { top: 43.5, left: 80 },
+      "I4": { top: 39.5, left: 79.5 },
+      "I5": { top: 44.5, left: 73.5 },
+      "I6": { top: 40, left: 73.5 },
+      "I7": { top: 43, left: 65 },
+      "I8": { top: 50, left: 80 },
+      "I9": { top: 32, left: 80 },
+      "I10": { top: 43, left: 42 },
+      "I11": { top: 50, left: 85 },
+      "I12": { top: 43.5, left: 84 },
+      "I13": { top: 39.3, left: 83.8 }
+    };
+
+    // 手动预设每一段路径的距离和时长（单位：米、分钟），键格式："节点1-节点2"
+    const manualSegmentInfo = {
+      "Dorm4-I1": { distance: 100, time: 1.25 },
+      "I1-Dorm4": { distance: 100, time: 1.25 },
+      "Dorm4-I7": { distance: 90, time: 1.125 },
+      "I7-Dorm4": { distance: 90, time: 1.125 },
+      "I1-I2": { distance: 80, time: 1.0 },
+      "I2-I1": { distance: 80, time: 1.0 },
+      "I2-Teach1": { distance: 70, time: 0.9 },
+      "Teach1-I2": { distance: 70, time: 0.9 },
+      "I2-I3": { distance: 100, time: 1.25 },
+      "I3-I2": { distance: 100, time: 1.25 },
+      "I3-Teach2": { distance: 60, time: 0.75 },
+      "Teach2-I3": { distance: 60, time: 0.75 },
+      "I3-I4": { distance: 90, time: 1.125 },
+      "I4-I3": { distance: 90, time: 1.125 },
+      "I4-Teach5": { distance: 110, time: 1.375 },
+      "Teach5-I4": { distance: 110, time: 1.375 },
+      "I1-I7": { distance: 70, time: 0.875 },
+      "I7-I1": { distance: 70, time: 0.875 },
+      "I7-Teach5": { distance: 80, time: 1.0 },
+      "Teach5-I7": { distance: 80, time: 1.0 },
+      "I3-I8": { distance: 65, time: 0.8125 },
+      "I8-I3": { distance: 65, time: 0.8125 },
+      "I8-Teach1": { distance: 75, time: 0.9375 },
+      "Teach1-I8": { distance: 75, time: 0.9375 },
+      "I8-Teach2": { distance: 65, time: 0.8125 },
+      "Teach2-I8": { distance: 65, time: 0.8125 },
+      "I7-I5": { distance: 80, time: 1.0 },
+      "I5-I7": { distance: 80, time: 1.0 },
+      "I8-I5": { distance: 70, time: 0.9 },
+      "I5-I8": { distance: 70, time: 0.9 },
+      "I4-I6": { distance: 100, time: 1.25 },
+      "I6-I4": { distance: 100, time: 1.25 },
+      "I6-I5": { distance: 85, time: 1.0625 },
+      "I5-I6": { distance: 85, time: 1.0625 }
+    };
+
+    // ----------------------------
+    // 初始化 Canvas 尺寸，使其与地图容器一致
+    function initCanvas() {
+      const mapContainer = document.getElementById("map-container");
+      const canvas = document.getElementById("routeCanvas");
+      canvas.width = mapContainer.clientWidth;
+      canvas.height = mapContainer.clientHeight;
+    }
+    window.addEventListener("resize", initCanvas);
+    window.addEventListener("load", initCanvas);
+
+    // ----------------------------
+    // 使用 Dijkstra 算法规划路径（考虑多个路口节点，权重取预设的距离）
+    function dijkstraPath(start, end) {
+      const distances = {};
+      const previous = {};
+      const nodes = new Set();
+
+      // 初始化
+      for (let node in roadNetwork) {
+        distances[node] = Infinity;
+        previous[node] = null;
+        nodes.add(node);
+      }
+      distances[start] = 0;
+
+      while (nodes.size > 0) {
+        // 选择当前未处理节点中距离最短的
+        let current = null;
+        for (let node of nodes) {
+          if (current === null || distances[node] < distances[current]) {
+            current = node;
+          }
         }
+        if (current === end) break;
+        nodes.delete(current);
 
-        // 打开地点选择框（点击按钮时）
-        function openLocationModal(type) {
-            currentSelectionType = type;
-            document.getElementById("overlay").style.display = "block";
-            document.getElementById("location-modal").style.display = "block";
+        // 遍历相邻节点，更新距离
+        for (let neighbor of roadNetwork[current] || []) {
+          let info = getSegmentInfo(current, neighbor);
+          let alt = distances[current] + info.distance;
+          if (alt < distances[neighbor]) {
+            distances[neighbor] = alt;
+            previous[neighbor] = current;
+          }
         }
+      }
+      // 生成路径数组
+      let path = [];
+      let curr = end;
+      while (curr) {
+        path.unshift(curr);
+        curr = previous[curr];
+      }
+      return path[0] === start ? path : null;
+    }
 
-        // 设置起点或终点
-        function setPoint(type) {
-            if (type === "start") {
-                selectedStart = currentLocation;
-            } else if (type === "end") {
-                selectedEnd = currentLocation;
-            }
-            document.getElementById("result").innerHTML = `起点: ${selectedStart || "未选择"}，终点: ${selectedEnd || "未选择"}`;
-            closeModal();
+    // ----------------------------
+    // 点击建筑 marker 弹出选择框（仅限建筑节点可选）
+    function openSelectionModal(location) {
+      if (["Dorm4", "Teach1", "Teach2", "Teach5"].includes(location)) {
+        currentLocation = location;
+        document.getElementById("overlay").style.display = "block";
+        document.getElementById("selection-modal").style.display = "block";
+      }
+    }
+
+    // 点击上方按钮，弹出下拉菜单供用户选择
+    function openSelectModal(type) {
+      currentSelectType = type;
+      const selectModal = document.getElementById("select-modal");
+      const selectLabel = document.getElementById("select-label");
+      selectLabel.innerText = type === "start" ? "请选择起点" : "请选择终点";
+      // 下拉选项只列出建筑节点
+      const selectElem = document.getElementById("select-location");
+      selectElem.innerHTML = "";
+      const buildingNodes = ["Dorm4", "Teach1", "Teach2", "Teach5"];
+      buildingNodes.forEach(node => {
+        let option = document.createElement("option");
+        option.value = node;
+        option.text = node;
+        selectElem.appendChild(option);
+      });
+      document.getElementById("overlay").style.display = "block";
+      selectModal.style.display = "block";
+    }
+
+    function confirmSelect() {
+      const selectElem = document.getElementById("select-location");
+      const chosen = selectElem.value;
+      if (currentSelectType === "start") {
+        selectedStart = chosen;
+      } else {
+        selectedEnd = chosen;
+      }
+      updateResult();
+      closeModal();
+    }
+
+    // 建筑 marker 弹窗中选择设为起点/终点
+    function setPoint(type) {
+      if (type === "start") {
+        selectedStart = currentLocation;
+      } else if (type === "end") {
+        selectedEnd = currentLocation;
+      }
+      updateResult();
+      closeModal();
+    }
+
+    function updateResult() {
+      document.getElementById("result").innerHTML = `起点: ${selectedStart || "未选择"}，终点: ${selectedEnd || "未选择"}`;
+      findRoute();
+    }
+
+    function closeModal() {
+      document.getElementById("overlay").style.display = "none";
+      document.getElementById("selection-modal").style.display = "none";
+      document.getElementById("select-modal").style.display = "none";
+    }
+
+    function clearSelection() {
+      selectedStart = "";
+      selectedEnd = "";
+      updateResult();
+      clearCanvas();
+      document.getElementById("segment-info").innerHTML = "";
+    }
+
+    // ----------------------------
+    // 使用 Dijkstra 算法规划路径，并显示路径信息
+    function findRoute() {
+      if (selectedStart && selectedEnd) {
+        let path = dijkstraPath(selectedStart, selectedEnd);
+        if (path) {
+          // 统计各段信息
+          let segmentDetails = "";
+          let totalDistance = 0, totalTime = 0;
+          for (let i = 0; i < path.length - 1; i++) {
+            const info = getSegmentInfo(path[i], path[i+1]);
+            totalDistance += info.distance;
+            totalTime += info.time;
+            segmentDetails += `${path[i]} → ${path[i+1]}：${info.distance.toFixed(0)}米，${info.time.toFixed(1)}分钟<br>`;
+          }
+          document.getElementById("result").innerHTML = `路径: ${path.join(" → ")}<br>总距离: ${totalDistance.toFixed(0)}米，总时长: ${totalTime.toFixed(1)}分钟`;
+          document.getElementById("segment-info").innerHTML = segmentDetails;
+          drawRoute(path);
+        } else {
+          document.getElementById("result").innerHTML = "无法到达";
+          clearCanvas();
+          document.getElementById("segment-info").innerHTML = "";
         }
+      } else {
+        document.getElementById("result").innerHTML = "请选择有效的起点和终点";
+        clearCanvas();
+        document.getElementById("segment-info").innerHTML = "";
+      }
+    }
 
-        // 选择地点（通过按钮选择）
-        function selectLocation(location) {
-            if (currentSelectionType === "start") {
-                selectedStart = location;
-            } else if (currentSelectionType === "end") {
-                selectedEnd = location;
-            }
-            document.getElementById("result").innerHTML = `起点: ${selectedStart || "未选择"}，终点: ${selectedEnd || "未选择"}`;
-            closeModal();
+    // ----------------------------
+    // 计算两节点间的距离和时长（先查 manualSegmentInfo，如无则采用默认计算）
+    function getSegmentInfo(node1, node2) {
+      let key = `${node1}-${node2}`;
+      if (manualSegmentInfo[key]) {
+        return manualSegmentInfo[key];
+      }
+      // 默认换算：每1%差值对应 10米，步行速度约 80 m/分钟
+      let coord1 = nodeCoordinates[node1];
+      let coord2 = nodeCoordinates[node2];
+      if (!coord1 || !coord2) return { distance: 0, time: 0 };
+      let dx = Math.abs(coord1.left - coord2.left);
+      let dy = Math.abs(coord1.top - coord2.top);
+      let distance = (dx + dy) * 10;
+      let time = distance / 80;
+      return { distance, time };
+    }
+
+    // ----------------------------
+    // 使用 Canvas 绘制路径（采用直线直接连接各节点）
+    function drawRoute(path) {
+      const canvas = document.getElementById("routeCanvas");
+      const ctx = canvas.getContext("2d");
+      clearCanvas();
+      if (!path || path.length < 2) return;
+
+      const container = document.getElementById("map-container");
+      const cw = container.clientWidth;
+      const ch = container.clientHeight;
+
+      // 辅助函数：获取节点坐标（转换为像素）
+      function getNodePos(node) {
+        let coord = nodeCoordinates[node];
+        if (coord) {
+          return { x: (coord.left / 100) * cw, y: (coord.top / 100) * ch };
         }
+        return null;
+      }
 
-        // 关闭弹窗
-        function closeModal() {
-            document.getElementById("overlay").style.display = "none";
-            document.getElementById("selection-modal").style.display = "none";
-            document.getElementById("location-modal").style.display = "none";
-        }
+      ctx.strokeStyle = "blue";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
 
-        // 清除选择
-        function clearSelection() {
-            selectedStart = "";
-            selectedEnd = "";
-            document.getElementById("result").innerHTML = "请选择起点和终点";
-            document.getElementById("route-line").style.display = "none";
-        }
+      let startPos = getNodePos(path[0]);
+      if (!startPos) return;
+      ctx.moveTo(startPos.x, startPos.y);
 
-        // 查询路径
-        function findRoute() {
-            const result = document.getElementById("result");
-            const routeLine = document.getElementById("route-line");
+      for (let i = 1; i < path.length; i++) {
+        let currentPos = getNodePos(path[i]);
+        if (!currentPos) continue;
+        ctx.lineTo(currentPos.x, currentPos.y);
+      }
+      ctx.stroke();
+    }
 
-            if (selectedStart && selectedEnd && selectedStart !== selectedEnd) {
-                const routeKey = `${selectedStart}-${selectedEnd}`;
-                if (routes[routeKey]) {
-                    result.innerHTML = `路径：${routes[routeKey].path} <br> 时间：${routes[routeKey].time}`;
-                    drawRoute(selectedStart, selectedEnd);
-                } else {
-                    result.innerHTML = "暂无预设路径";
-                    routeLine.style.display = "none";
-                }
-            } else {
-                result.innerHTML = "请选择有效的起点和终点";
-                routeLine.style.display = "none";
-            }
-        }
+    function clearCanvas() {
+      const canvas = document.getElementById("routeCanvas");
+      const ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
 
-        // 绘制路线
-        function drawRoute(start, end) {
-            const startMarker = document.querySelector(`.marker[onclick="openSelectionModal('${start}')"]`);
-            const endMarker = document.querySelector(`.marker[onclick="openSelectionModal('${end}')"]`);
-            const routeLine = document.getElementById("route-line");
-
-            const startX = startMarker.offsetLeft + startMarker.offsetWidth / 2;
-            const startY = startMarker.offsetTop + startMarker.offsetHeight / 2;
-            const endX = endMarker.offsetLeft + endMarker.offsetWidth / 2;
-            const endY = endMarker.offsetTop + endMarker.offsetHeight / 2;
-
-            const dx = endX - startX;
-            const dy = endY - startY;
-            const length = Math.sqrt(dx * dx + dy * dy);
-            const angle = Math.atan2(dy, dx) * (180 / Math.PI);
-
-            // 设置路线的初始状态
-            routeLine.style.width = "0";
-            routeLine.style.transform = `rotate(${angle}deg)`;
-            routeLine.style.left = `${startX}px`;
-            routeLine.style.top = `${startY}px`;
-            routeLine.style.display = "block";
-
-            // 使用 setTimeout 触发动画
-            setTimeout(() => {
-                routeLine.style.width = `${length}px`;
-            }, 10);
-        }
-    </script>
+    // ----------------------------
+    // “转换”按钮：切换显示/隐藏路口节点（intersection-marker），同时显示名称
+    function toggleIntersections() {
+      intersectionsVisible = !intersectionsVisible;
+      const intersectionElems = document.querySelectorAll(".intersection-marker");
+      intersectionElems.forEach(elem => {
+        elem.style.display = intersectionsVisible ? "block" : "none";
+      });
+    }
+  </script>
 </body>
 </html>
