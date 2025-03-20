@@ -142,6 +142,9 @@
     <div class="intersection-marker" style="top: 50%; left: 85%;" onclick="openSelectionModal('I11')">I11</div>
     <div class="intersection-marker" style="top: 43.5%; left: 84%;" onclick="openSelectionModal('I12')">I12</div>
     <div class="intersection-marker" style="top: 39.3%; left: 83.8%;" onclick="openSelectionModal('I13')">I13</div>
+    <div class="intersection-marker" style="top: 39.75%; left: 76.5%;" onclick="openSelectionModal('I14')">I14</div>
+    <div class="intersection-marker" style="top: 50%; left: 82.5%;" onclick="openSelectionModal('I15')">I15</div>
+    <div class="intersection-marker" style="top: 32%; left: 83.8%;" onclick="openSelectionModal('I16')">I16</div>
   </div>
   <p id="result">请选择起点和终点</p>
   <p id="segment-info"></p>
@@ -171,20 +174,28 @@
     // ----------------------------
     // 定义完整的道路网络（包括建筑节点和路口节点）
     // 建筑节点：Dorm4, Teach1, Teach2, Teach5（可选作为起点终点）
-    // 路口节点：I1～I8（示例，可根据需要扩充）
+    // 路口节点：I1～I14
     const roadNetwork = {
-      "Dorm4": ["I1", "I7"],
-      "Teach1": ["I2", "I8"],
-      "Teach2": ["I3", "I8"],
-      "Teach5": ["I4", "I7"],
-      "I1": ["Dorm4", "I2", "I7"],
-      "I2": ["I1", "Teach1", "I3"],
-      "I3": ["I2", "Teach2", "I4", "I8"],
-      "I4": ["I3", "Teach5", "I6"],
-      "I5": ["I7", "I8", "I6"],
-      "I6": ["I4", "I5"],
-      "I7": ["Dorm4", "I1", "Teach5", "I5"],
-      "I8": ["Teach1", "I3", "Teach2", "I5"]
+        "Dorm4": ["I1"],
+      "Teach1": ["I14"],
+      "Teach2": ["I15"],
+      "Teach5": ["I16"],
+      "I1": ["Dorm4", "I10", "I7"],
+      "I2": ["I7", "I5"],
+      "I3": ["I4", "I12", "I8", "I5"],
+      "I4": ["I14", "I3", "I13","I9"],
+      "I5": ["I2", "I3", "I6"],
+      "I6": ["I14", "I5"],
+      "I7": ["I1", "I2"],
+      "I8": ["I3","I15"],
+      "I9": ["I4","I16"],
+      "I10": ["I1"],
+      "I11": ["I12","I15"],
+      "I12": ["I3", "I11", "I13"],
+      "I13": ["I4", "I16", "I12"],
+      "I14": ["Teach1","I4","I6"],
+      "I15": ["Teach2","I8","I11"],
+      "I16": ["Teach5","I9","I13"]
     };
 
     // 为每个节点定义相对坐标（单位：百分比，相对于地图容器）
@@ -205,45 +216,61 @@
       "I10": { top: 43, left: 42 },
       "I11": { top: 50, left: 85 },
       "I12": { top: 43.5, left: 84 },
-      "I13": { top: 39.3, left: 83.8 }
+      "I13": { top: 39.3, left: 83.8 },
+      "I14": { top: 39.75, left: 76.5 },
+      "I15": { top: 50, left: 82.5 },
+      "I16": { top: 32, left: 83.8 }
     };
 
     // 手动预设每一段路径的距离和时长（单位：米、分钟），键格式："节点1-节点2"
     const manualSegmentInfo = {
-      "Dorm4-I1": { distance: 100, time: 1.25 },
-      "I1-Dorm4": { distance: 100, time: 1.25 },
-      "Dorm4-I7": { distance: 90, time: 1.125 },
-      "I7-Dorm4": { distance: 90, time: 1.125 },
-      "I1-I2": { distance: 80, time: 1.0 },
-      "I2-I1": { distance: 80, time: 1.0 },
-      "I2-Teach1": { distance: 70, time: 0.9 },
-      "Teach1-I2": { distance: 70, time: 0.9 },
-      "I2-I3": { distance: 100, time: 1.25 },
-      "I3-I2": { distance: 100, time: 1.25 },
-      "I3-Teach2": { distance: 60, time: 0.75 },
-      "Teach2-I3": { distance: 60, time: 0.75 },
-      "I3-I4": { distance: 90, time: 1.125 },
-      "I4-I3": { distance: 90, time: 1.125 },
-      "I4-Teach5": { distance: 110, time: 1.375 },
-      "Teach5-I4": { distance: 110, time: 1.375 },
-      "I1-I7": { distance: 70, time: 0.875 },
-      "I7-I1": { distance: 70, time: 0.875 },
-      "I7-Teach5": { distance: 80, time: 1.0 },
-      "Teach5-I7": { distance: 80, time: 1.0 },
-      "I3-I8": { distance: 65, time: 0.8125 },
-      "I8-I3": { distance: 65, time: 0.8125 },
-      "I8-Teach1": { distance: 75, time: 0.9375 },
-      "Teach1-I8": { distance: 75, time: 0.9375 },
-      "I8-Teach2": { distance: 65, time: 0.8125 },
-      "Teach2-I8": { distance: 65, time: 0.8125 },
-      "I7-I5": { distance: 80, time: 1.0 },
-      "I5-I7": { distance: 80, time: 1.0 },
-      "I8-I5": { distance: 70, time: 0.9 },
-      "I5-I8": { distance: 70, time: 0.9 },
-      "I4-I6": { distance: 100, time: 1.25 },
-      "I6-I4": { distance: 100, time: 1.25 },
-      "I6-I5": { distance: 85, time: 1.0625 },
-      "I5-I6": { distance: 85, time: 1.0625 }
+        "Dorm4-I1": { distance: 100, time: 10 },
+        "Teach1-I14": { distance: 100, time: 10 },
+        "Teach2-I15": { distance: 100, time: 10 },
+        "Teach5-I16": { distance: 100, time: 10 },
+        "I1-Dorm4": { distance: 100, time: 10 },
+        "I1-I10": { distance: 100, time: 10 },
+        "I1-I7": { distance: 100, time: 10 },
+        "I2-I7": { distance: 100, time: 10 },
+        "I2-I5": { distance: 100, time: 10 },
+        "I3-I4": { distance: 100, time: 10 },
+        "I3-I12": { distance: 100, time: 10 },
+        "I3-I8": { distance: 100, time: 10 },
+        "I3-I5": { distance: 100, time: 10 },
+        "I4-I14": { distance: 100, time: 10 },
+        "I4-I3": { distance: 100, time: 10 },
+        "I4-I13": { distance: 100, time: 10 },
+        "I4-I9": { distance: 100, time: 10 },
+        "I5-I2": { distance: 100, time: 10 },
+        "I5-I3": { distance: 100, time: 10 },
+        "I5-I6": { distance: 100, time: 10 },
+        "I6-I14": { distance: 100, time: 10 },
+        "I6-I5": { distance: 100, time: 10 },
+        "I7-I1": { distance: 100, time: 10 },
+        "I7-I2": { distance: 100, time: 10 },
+        "I8-I3": { distance: 100, time: 10 },
+        "I8-I15": { distance: 100, time: 10 },
+        "I9-I4": { distance: 100, time: 10 },
+        "I9-I16": { distance: 100, time: 10 },
+        "I10-I1": { distance: 100, time: 10 },
+        "I11-I12": { distance: 100, time: 10 },
+        "I11-I15": { distance: 100, time: 10 },
+        "I12-I3": { distance: 100, time: 10 },
+        "I12-I11": { distance: 100, time: 10 },
+        "I12-I13": { distance: 100, time: 10 },
+        "I13-I4": { distance: 100, time: 10 },
+        "I13-I16": { distance: 100, time: 10 },
+        "I13-I12": { distance: 100, time: 10 },
+        "I14-Teach1": { distance: 100, time: 10 },
+        "I14-I4": { distance: 100, time: 10 },
+        "I14-I6": { distance: 100, time: 10 },
+        "I15-Teach2": { distance: 100, time: 10 },
+        "I15-I8": { distance: 100, time: 10 },
+        "I15-I11": { distance: 100, time: 10 },
+        "I16-Teach5": { distance: 100, time: 10 },
+        "I16-I9": { distance: 100, time: 10 },
+        "I16-I13": { distance: 100, time: 10 },
+
     };
 
     // ----------------------------
