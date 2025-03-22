@@ -1,0 +1,1144 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>校内交通指引</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+    }
+    #map-container {
+      position: relative;
+      width: 80%;
+      max-width: 800px;
+      margin: 20px auto;
+      border: 1px solid #ccc;
+    }
+    #map {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    /* Canvas覆盖在地图上，用于绘制路径 */
+    #routeCanvas {
+      position: absolute;
+      left: 0;
+      top: 0;
+      z-index: 2;
+      pointer-events: none;
+    }
+    /* 建筑节点：大红色标记 */
+    .marker {
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      background-color: red;
+      border-radius: 50%;
+      cursor: pointer;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      color: white;
+      font-size: 12px;
+      font-weight: bold;
+      line-height: 20px;
+      padding: 0 3px;
+      z-index: 3;
+    }
+    /* 路口节点：小绿色标记，默认不显示 */
+    .intersection-marker {
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      background-color: green;
+      border-radius: 50%;
+      cursor: pointer;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      color: white;
+      font-size: 8px;      /* 较小字体 */
+      line-height: 12px;   /* 行高与高度匹配 */
+      z-index: 3;
+      display: none;
+    }
+    .controls {
+      margin: 10px;
+    }
+    .button {
+      padding: 8px 15px;
+      margin: 5px;
+      cursor: pointer;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 5px;
+    }
+    .modal, .select-modal {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background-color: white;
+      padding: 20px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      z-index: 1000;
+    }
+    .modal button, .select-modal button {
+      padding: 8px 15px;
+      margin: 5px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      z-index: 999;
+    }
+  </style>
+</head>
+<body>
+  <h1>校内交通指引</h1>
+  <div class="controls">
+    <button class="button" onclick="openSelectModal('start')">选择起点</button>
+    <button class="button" onclick="openSelectModal('end')">选择终点</button>
+    <button class="button" onclick="findRoute()">查询</button>
+    <button class="button" onclick="clearSelection()">清除</button>
+    <button class="button" onclick="toggleIntersections()">转换</button>
+  </div>
+
+  <div id="map-container">
+    <!-- 校园地图 -->
+    <img id="map" src="https://ustc.edu.cn/__local/E/1D/C2/D8FA8F6B58664E70A761F93FE7A_A2797589_73D4A.jpg" alt="校园地图">
+    <!-- Canvas 用于动态绘制路径 -->
+    <canvas id="routeCanvas"></canvas>
+
+    <!-- 显示建筑节点（红色，大） -->
+    <div class="marker" style="top: 40%; left: 55%;" onclick="openSelectionModal('Dorm4')">4</div>
+    <div class="marker" style="top: 42%; left: 77%;" onclick="openSelectionModal('Teach1')">一</div>
+    <div class="marker" style="top: 48%; left: 83%;" onclick="openSelectionModal('Teach2')">二</div>
+    <div class="marker" style="top: 29.5%; left: 85.5%;" onclick="openSelectionModal('Teach5')">五</div>
+
+    <!-- 路口节点（绿色，小，显示名称） -->
+    <div class="intersection-marker" style="top: 43%; left: 56.7%;" onclick="openSelectionModal('I1')">I1</div>
+    <div class="intersection-marker" style="top: 44.5%; left: 70%;" onclick="openSelectionModal('I2')">I2</div>
+    <div class="intersection-marker" style="top: 43.5%; left: 80%;" onclick="openSelectionModal('I3')">I3</div>
+    <div class="intersection-marker" style="top: 39.5%; left: 79.5%;" onclick="openSelectionModal('I4')">I4</div>
+    <div class="intersection-marker" style="top: 44.5%; left: 73.5%;" onclick="openSelectionModal('I5')">I5</div>
+    <div class="intersection-marker" style="top: 40%; left: 73.5%;" onclick="openSelectionModal('I6')">I6</div>
+    <div class="intersection-marker" style="top: 43%; left: 65%;" onclick="openSelectionModal('I7')">I7</div>
+    <div class="intersection-marker" style="top: 50%; left: 80%;" onclick="openSelectionModal('I8')">I8</div>
+    <div class="intersection-marker" style="top: 32%; left: 80%;" onclick="openSelectionModal('I9')">I9</div>
+    <div class="intersection-marker" style="top: 43%; left: 42%;" onclick="openSelectionModal('I10')">I10</div>
+    <div class="intersection-marker" style="top: 50%; left: 85%;" onclick="openSelectionModal('I11')">I11</div>
+    <div class="intersection-marker" style="top: 43.5%; left: 84%;" onclick="openSelectionModal('I12')">I12</div>
+    <div class="intersection-marker" style="top: 39.3%; left: 83.8%;" onclick="openSelectionModal('I13')">I13</div>
+    <div class="intersection-marker" style="top: 39.75%; left: 76.5%;" onclick="openSelectionModal('I14')">I14</div>
+    <div class="intersection-marker" style="top: 50%; left: 82.5%;" onclick="openSelectionModal('I15')">I15</div>
+    <div class="intersection-marker" style="top: 32%; left: 83.8%;" onclick="openSelectionModal('I16')">I16</div>
+    <div class="intersection-marker" style="top: 50%; left: 74.3%;" onclick="openSelectionModal('I17')">I17</div>
+    <div class="intersection-marker" style="top: 54.8%; left: 74.5%;" onclick="openSelectionModal('I18')">I18</div>
+    <div class="intersection-marker" style="top: 54%; left: 80.5%;" onclick="openSelectionModal('I19')">I19</div>
+    <div class="intersection-marker" style="top: 31.8%; left: 76.5%;" onclick="openSelectionModal('I20')">I20</div>
+  </div>
+  <p id="result">请选择起点和终点</p>
+  <p id="segment-info"></p>
+
+  <!-- 弹窗：点击建筑 marker 后，选择设为起点或终点（路口节点不可选） -->
+  <div class="overlay" id="overlay" onclick="closeModal()"></div>
+  <div class="modal" id="selection-modal">
+    <p>请选择操作：</p>
+    <button onclick="setPoint('start')">设为起点</button>
+    <button onclick="setPoint('end')">设为终点</button>
+  </div>
+  <!-- 弹窗：下拉菜单选择 -->
+  <div class="select-modal" id="select-modal">
+    <p id="select-label">请选择</p>
+    <select id="select-location"></select>
+    <br>
+    <button onclick="confirmSelect()">确认</button>
+  </div>
+
+  <script>
+    let selectedStart = "";
+    let selectedEnd = "";
+    let currentLocation = ""; // 当前点击的建筑节点（仅限建筑节点可选）
+    let currentSelectType = ""; // 当前下拉菜单选择的类型
+    let intersectionsVisible = false; // 默认不显示路口节点
+
+    // ----------------------------
+    // 定义完整的道路网络（包括建筑节点和路口节点）
+    // 建筑节点：Dorm4, Teach1, Teach2, Teach5（可选作为起点终点）
+    // 路口节点：I1～I14（示例，可根据需要扩充）
+    const roadNetwork = {
+      "Dorm4": ["I1"],
+      "Teach1": ["I14"],
+      "Teach2": ["I15"],
+      "Teach5": ["I16"],
+      "I1": ["Dorm4", "I10", "I7"],
+      "I2": ["I7", "I5"],
+      "I3": ["I4", "I12", "I8", "I5"],
+      "I4": ["I14", "I3", "I13", "I9"],
+      "I5": ["I2", "I3", "I6", "I17"],
+      "I6": ["I14", "I5"],
+      "I7": ["I1", "I2"],
+      "I8": ["I3", "I15", "I17", "I19"],
+      "I9": ["I4", "I16", "I20"],
+      "I10": ["I1"],
+      "I11": ["I12", "I15"],
+      "I12": ["I3", "I11", "I13"],
+      "I13": ["I4", "I16", "I12"],
+      "I14": ["Teach1", "I4", "I6", "I20"],
+      "I15": ["Teach2", "I8", "I11"],
+      "I16": ["Teach5", "I9", "I13"],
+      "I17": ["I5", "I8", "I18"],
+      "I18": ["I17", "I19"],
+      "I19": ["I8", "I18"],
+      "I20": ["I9", "I14"]
+    };
+
+    // 为每个节点定义相对坐标（单位：百分比，相对于地图容器）
+    const nodeCoordinates = {
+      "Dorm4": { top: 40, left: 55 },
+      "Teach1": { top: 42, left: 77 },
+      "Teach2": { top: 48, left: 83 },
+      "Teach5": { top: 29.5, left: 85.5 },
+      "I1": { top: 43, left: 56.7 },
+      "I2": { top: 44.5, left: 70 },
+      "I3": { top: 43.5, left: 80 },
+      "I4": { top: 39.5, left: 79.5 },
+      "I5": { top: 44.5, left: 73.5 },
+      "I6": { top: 40, left: 73.5 },
+      "I7": { top: 43, left: 65 },
+      "I8": { top: 50, left: 80 },
+      "I9": { top: 32, left: 80 },
+      "I10": { top: 43, left: 42 },
+      "I11": { top: 50, left: 85 },
+      "I12": { top: 43.5, left: 84 },
+      "I13": { top: 39.3, left: 83.8 },
+      "I14": { top: 39.75, left: 76.5 },
+      "I15": { top: 50, left: 82.5 },
+      "I16": { top: 32, left: 83.8 },
+      "I17": { top: 50, left: 74.8 },
+      "I18": { top: 54.8, left: 78.5 },
+      "I19": { top: 54, left: 80.5 },
+      "I20": { top: 31.8, left: 76.5 }
+    };
+
+    // 手动预设每一段路径的距离和时长（单位：米、分钟），键格式："节点1-节点2"
+    const manualSegmentInfo = {
+      "I5-I17": { distance: 100, time: 31 },
+      "I17-I18": { distance: 100, time: 29 },
+      "I18-I19": { distance: 150, time: 49 },
+      "I19-I8": { distance: 110, time: 33 },
+      "I8-I3": { distance: 60, time: 17 },
+      "I3-I4": { distance: 60, time: 25 },
+      "I4-I13": { distance: 100, time: 33 },
+      "I13-I16": { distance: 200, time: 65 },
+      "I16-I9": { distance: 60, time: 23 },
+      "I9-I20": { distance: 70, time: 24 },
+      "I20-I14": { distance: 170, time: 66 },
+      "I14-I6": { distance: 70, time: 30 },
+      "I6-I5": { distance: 80, time: 31 },
+      "I1-I7": { distance: 220, time: 46 },
+      "I7-I2": { distance: 200, time: 42 },
+      "I2-I5": { distance: 190, time: 40 },
+      "I8-I15": { distance: 40, time: 10 },
+      "I15-I11": { distance: 60, time: 18 },
+      "I11-I12": { distance: 60, time: 26 },
+      "I12-I13": { distance: 60, time: 20 },
+      "I12-I3": { distance: 100, time: 30 },
+      "I9-I4": { distance: 180, time: 65 },
+      "I4-I14": { distance: 80, time: 20 },
+      "I5-I3": { distance: 150, time: 50 },
+      "I17-I8": { distance: 150, time: 47 },
+      "Dorm4-I1": { distance: 100, time: 30 },
+      "Teach1-I14": { distance: 10, time: 5 },
+      "Teach2-I15": { distance: 100, time: 30 },
+      "Teach5-I16": { distance: 10, time: 5 },
+      "I17-I5": { distance: 100, time: 31 },
+      "I18-I17": { distance: 100, time: 29 },
+      "I19-I18": { distance: 150, time: 49 },
+      "I8-I19": { distance: 110, time: 33 },
+      "I3-I8": { distance: 60, time: 17 },
+      "I4-I3": { distance: 60, time: 25 },
+      "I13-I4": { distance: 100, time: 33 },
+      "I16-I13": { distance: 200, time: 65 },
+      "I9-I16": { distance: 60, time: 23 },
+      "I20-I9": { distance: 70, time: 24 },
+      "I14-I20": { distance: 170, time: 66 },
+      "I6-I14": { distance: 70, time: 30 },
+      "I5-I6": { distance: 80, time: 31 },
+      "I7-I1": { distance: 220, time: 46 },
+      "I2-I7": { distance: 200, time: 42 },
+      "I5-I2": { distance: 190, time: 40 },
+      "I15-I8": { distance: 40, time: 10 },
+      "I11-I15": { distance: 60, time: 18 },
+      "I12-I11": { distance: 60, time: 26 },
+      "I13-I12": { distance: 60, time: 20 },
+      "I3-I12": { distance: 100, time: 30 },
+      "I4-I9": { distance: 180, time: 65 },
+      "I14-I4": { distance: 80, time: 20 },
+      "I3-I5": { distance: 150, time: 50 },
+      "I8-I17": { distance: 150, time: 47 },
+      "I1-Dorm4": { distance: 100, time: 30 },
+      "I14-Teach1": { distance: 10, time: 5 },
+      "I15-Teach2": { distance: 100, time: 30 },
+      "I16-Teach5": { distance: 10, time: 5 }
+    };
+
+    // ----------------------------
+    // 初始化 Canvas 尺寸，使其与地图容器一致
+    function initCanvas() {
+      const mapContainer = document.getElementById("map-container");
+      const canvas = document.getElementById("routeCanvas");
+      canvas.width = mapContainer.clientWidth;
+      canvas.height = mapContainer.clientHeight;
+    }
+    window.addEventListener("resize", initCanvas);
+    window.addEventListener("load", initCanvas);
+
+    // ----------------------------
+    // 使用 Dijkstra 算法规划路径（权重取预设的距离）
+    function dijkstraPath(start, end) {
+      const distances = {};
+      const previous = {};
+      const nodes = new Set();
+
+      for (let node in roadNetwork) {
+        distances[node] = Infinity;
+        previous[node] = null;
+        nodes.add(node);
+      }
+      distances[start] = 0;
+
+      while (nodes.size > 0) {
+        let current = null;
+        for (let node of nodes) {
+          if (current === null || distances[node] < distances[current]) {
+            current = node;
+          }
+        }
+        if (current === end) break;
+        nodes.delete(current);
+        for (let neighbor of roadNetwork[current] || []) {
+          let info = getSegmentInfo(current, neighbor);
+          let alt = distances[current] + info.distance;
+          if (alt < distances[neighbor]) {
+            distances[neighbor] = alt;
+            previous[neighbor] = current;
+          }
+        }
+      }
+      let path = [];
+      let curr = end;
+      while (curr) {
+        path.unshift(curr);
+        curr = previous[curr];
+      }
+      return path[0] === start ? path : null;
+    }
+
+    // 求第二快路径：对最快路径中每个边，暂时移除该边后计算备选路径，选成本最低且大于最快路径的作为第二快路径
+    function secondShortestPath(start, end) {
+      let bestPath = dijkstraPath(start, end);
+      if (!bestPath) return null;
+      let bestCost = getPathCost(bestPath);
+      let candidates = [];
+      for (let i = 0; i < bestPath.length - 1; i++) {
+        let u = bestPath[i], v = bestPath[i+1];
+        // 暂时移除 u->v（如果存在）和 v->u（如果存在）
+        let removedUV = [];
+        let removedVU = [];
+        if (roadNetwork[u]) {
+          let idx = roadNetwork[u].indexOf(v);
+          if (idx !== -1) {
+            removedUV = roadNetwork[u].splice(idx, 1);
+          }
+        }
+        if (roadNetwork[v]) {
+          let idx = roadNetwork[v].indexOf(u);
+          if (idx !== -1) {
+            removedVU = roadNetwork[v].splice(idx, 1);
+          }
+        }
+        let candidate = dijkstraPath(start, end);
+        if (candidate) {
+          let cost = getPathCost(candidate);
+          if (cost > bestCost) {
+            candidates.push({path: candidate, cost: cost});
+          }
+        }
+        // 恢复边
+        if (removedUV.length > 0) {
+          roadNetwork[u].push(v);
+        }
+        if (removedVU.length > 0) {
+          roadNetwork[v].push(u);
+        }
+      }
+      if (candidates.length === 0) return null;
+      candidates.sort((a, b) => a.cost - b.cost);
+      return candidates[0].path;
+    }
+
+    // 计算路径成本（总距离）
+    function getPathCost(path) {
+      let cost = 0;
+      for (let i = 0; i < path.length - 1; i++) {
+        cost += getSegmentInfo(path[i], path[i+1]).distance;
+      }
+      return cost;
+    }
+
+    // ----------------------------
+    // 点击建筑 marker 弹出选择框（仅限建筑节点可选）
+    function openSelectionModal(location) {
+      if (["Dorm4", "Teach1", "Teach2", "Teach5"].includes(location)) {
+        currentLocation = location;
+        document.getElementById("overlay").style.display = "block";
+        document.getElementById("selection-modal").style.display = "block";
+      }
+    }
+
+    // 点击上方按钮，弹出下拉菜单供用户选择
+    function openSelectModal(type) {
+      currentSelectType = type;
+      const selectModal = document.getElementById("select-modal");
+      const selectLabel = document.getElementById("select-label");
+      selectLabel.innerText = type === "start" ? "请选择起点" : "请选择终点";
+      const selectElem = document.getElementById("select-location");
+      selectElem.innerHTML = "";
+      const buildingNodes = ["Dorm4", "Teach1", "Teach2", "Teach5"];
+      buildingNodes.forEach(node => {
+        let option = document.createElement("option");
+        option.value = node;
+        option.text = node;
+        selectElem.appendChild(option);
+      });
+      document.getElementById("overlay").style.display = "block";
+      selectModal.style.display = "block";
+    }
+
+    function confirmSelect() {
+      const selectElem = document.getElementById("select-location");
+      const chosen = selectElem.value;
+      if (currentSelectType === "start") {
+        selectedStart = chosen;
+      } else {
+        selectedEnd = chosen;
+      }
+      updateResult();
+      closeModal();
+    }
+
+    function setPoint(type) {
+      if (type === "start") {
+        selectedStart = currentLocation;
+      } else if (type === "end") {
+        selectedEnd = currentLocation;
+      }
+      updateResult();
+      closeModal();
+    }
+
+    function updateResult() {
+      document.getElementById("result").innerHTML = `起点: ${selectedStart || "未选择"}，终点: ${selectedEnd || "未选择"}`;
+      findRoute();
+    }
+
+    function closeModal() {
+      document.getElementById("overlay").style.display = "none";
+      document.getElementById("selection-modal").style.display = "none";
+      document.getElementById("select-modal").style.display = "none";
+    }
+
+    function clearSelection() {
+      selectedStart = "";
+      selectedEnd = "";
+      updateResult();
+      clearCanvas();
+      document.getElementById("segment-info").innerHTML = "";
+    }
+
+    // ----------------------------
+    // 使用 Dijkstra 算法规划路径，并显示最快路径和第二快路径
+    function findRoute() {
+      if (selectedStart && selectedEnd) {
+        let bestPath = dijkstraPath(selectedStart, selectedEnd);
+        let secondPath = secondShortestPath(selectedStart, selectedEnd);
+        if (bestPath) {
+          let bestDetails = "";
+          let bestDistance = 0, bestTime = 0;
+          for (let i = 0; i < bestPath.length - 1; i++) {
+            let info = getSegmentInfo(bestPath[i], bestPath[i+1]);
+            bestDistance += info.distance;
+            bestTime += info.time;
+            bestDetails += `${bestPath[i]} → ${bestPath[i+1]}：${info.distance.toFixed(0)}米，${info.time.toFixed(1)}分钟<br>`;
+          }
+          let resultText = `最快路径: ${bestPath.join(" → ")}<br>总距离: ${bestDistance.toFixed(0)}米，总时长: ${bestTime.toFixed(1)}分钟<br>${bestDetails}`;
+          if (secondPath) {
+            let secondDetails = "";
+            let secondDistance = 0, secondTime = 0;
+            for (let i = 0; i < secondPath.length - 1; i++) {
+              let info = getSegmentInfo(secondPath[i], secondPath[i+1]);
+              secondDistance += info.distance;
+              secondTime += info.time;
+              secondDetails += `${secondPath[i]} → ${secondPath[i+1]}：${info.distance.toFixed(0)}米，${info.time.toFixed(1)}分钟<br>`;
+            }
+            resultText += `<br>第二快路径: ${secondPath.join(" → ")}<br>总距离: ${secondDistance.toFixed(0)}米，总时长: ${secondTime.toFixed(1)}分钟<br>${secondDetails}`;
+          }
+          document.getElementById("result").innerHTML = resultText;
+          drawRoute(bestPath, secondPath);
+        } else {
+          document.getElementById("result").innerHTML = "无法到达";
+          clearCanvas();
+          document.getElementById("segment-info").innerHTML = "";
+        }
+      } else {
+        document.getElementById("result").innerHTML = "请选择有效的起点和终点";
+        clearCanvas();
+        document.getElementById("segment-info").innerHTML = "";
+      }
+    }
+
+    // ----------------------------
+    // 计算两节点间的距离和时长（先查 manualSegmentInfo，如无则采用默认计算）
+    function getSegmentInfo(node1, node2) {
+      let key = `${node1}-${node2}`;
+      if (manualSegmentInfo[key]) {
+        return manualSegmentInfo[key];
+      }
+      let coord1 = nodeCoordinates[node1];
+      let coord2 = nodeCoordinates[node2];
+      if (!coord1 || !coord2) return { distance: 0, time: 0 };
+      let dx = Math.abs(coord1.left - coord2.left);
+      let dy = Math.abs(coord1.top - coord2.top);
+      let distance = (dx + dy) * 10;
+      let time = distance / 80;
+      return { distance, time };
+    }
+
+    // ----------------------------
+    // 使用 Canvas 绘制路径：最快路径以蓝色实线，第二快路径（如果存在）以红色虚线绘制
+    function drawRoute(bestPath, secondPath) {
+      const canvas = document.getElementById("routeCanvas");
+      const ctx = canvas.getContext("2d");
+      clearCanvas();
+      const container = document.getElementById("map-container");
+      const cw = container.clientWidth;
+      const ch = container.clientHeight;
+      function getNodePos(node) {
+        let coord = nodeCoordinates[node];
+        if (coord) {
+          return { x: (coord.left / 100) * cw, y: (coord.top / 100) * ch };
+        }
+        return null;
+      }
+      // 绘制最快路径（蓝色实线）
+      if (bestPath && bestPath.length > 1) {
+        ctx.strokeStyle = "blue";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        let pos = getNodePos(bestPath[0]);
+        if (!pos) return;
+        ctx.moveTo(pos.x, pos.y);
+        for (let i = 1; i < bestPath.length; i++) {
+          pos = getNodePos(bestPath[i]);
+          if (!pos) continue;
+          ctx.lineTo(pos.x, pos.y);
+        }
+        ctx.stroke();
+      }
+      // 绘制第二快路径（红色虚线）
+      if (secondPath && secondPath.length > 1) {
+        ctx.strokeStyle = "red";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        let pos2 = getNodePos(secondPath[0]);
+        if (!pos2) return;
+        ctx.moveTo(pos2.x, pos2.y);
+        for (let i = 1; i < secondPath.length; i++) {
+          pos2 = getNodePos(secondPath[i]);
+          if (!pos2) continue;
+          ctx.lineTo(pos2.x, pos2.y);
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    }
+
+    function clearCanvas() {
+      const canvas = document.getElementById("routeCanvas");
+      const ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    // ----------------------------
+    // 求第二快路径：依次移除最快路径中每条边，计算备选路径，返回成本最低的备选路径
+    function secondShortestPath(start, end) {
+      let bestPath = dijkstraPath(start, end);
+      if (!bestPath) return null;
+      let bestCost = getPathCost(bestPath);
+      let candidates = [];
+      for (let i = 0; i < bestPath.length - 1; i++) {
+        let u = bestPath[i], v = bestPath[i+1];
+        let removedUV = [];
+        let removedVU = [];
+        if (roadNetwork[u]) {
+          let idx = roadNetwork[u].indexOf(v);
+          if (idx !== -1) {
+            removedUV = roadNetwork[u].splice(idx, 1);
+          }
+        }
+        if (roadNetwork[v]) {
+          let idx = roadNetwork[v].indexOf(u);
+          if (idx !== -1) {
+            removedVU = roadNetwork[v].splice(idx, 1);
+          }
+        }
+        let candidate = dijkstraPath(start, end);
+        if (candidate) {
+          let cost = getPathCost(candidate);
+          if (cost > bestCost) {
+            candidates.push({ path: candidate, cost: cost });
+          }
+        }
+        if (removedUV.length > 0) {
+          roadNetwork[u].push(v);
+        }
+        if (removedVU.length > 0) {
+          roadNetwork[v].push(u);
+        }
+      }
+      if (candidates.length === 0) return null;
+      candidates.sort((a, b) => a.cost - b.cost);
+      return candidates[0].path;
+    }
+
+    function getPathCost(path) {
+      let cost = 0;
+      for (let i = 0; i < path.length - 1; i++) {
+        cost += getSegmentInfo(path[i], path[i+1]).distance;
+      }
+      return cost;
+    }
+
+    // ----------------------------
+    // 点击建筑 marker 弹出选择框（仅限建筑节点可选）
+    function openSelectionModal(location) {
+      if (["Dorm4", "Teach1", "Teach2", "Teach5"].includes(location)) {
+        currentLocation = location;
+        document.getElementById("overlay").style.display = "block";
+        document.getElementById("selection-modal").style.display = "block";
+      }
+    }
+
+    // 点击上方按钮，弹出下拉菜单供用户选择
+    function openSelectModal(type) {
+      currentSelectType = type;
+      const selectModal = document.getElementById("select-modal");
+      const selectLabel = document.getElementById("select-label");
+      selectLabel.innerText = type === "start" ? "请选择起点" : "请选择终点";
+      const selectElem = document.getElementById("select-location");
+      selectElem.innerHTML = "";
+      const buildingNodes = ["Dorm4", "Teach1", "Teach2", "Teach5"];
+      buildingNodes.forEach(node => {
+        let option = document.createElement("option");
+        option.value = node;
+        option.text = node;
+        selectElem.appendChild(option);
+      });
+      document.getElementById("overlay").style.display = "block";
+      selectModal.style.display = "block";
+    }
+
+    function confirmSelect() {
+      const selectElem = document.getElementById("select-location");
+      const chosen = selectElem.value;
+      if (currentSelectType === "start") {
+        selectedStart = chosen;
+      } else {
+        selectedEnd = chosen;
+      }
+      updateResult();
+      closeModal();
+    }
+
+    function setPoint(type) {
+      if (type === "start") {
+        selectedStart = currentLocation;
+      } else if (type === "end") {
+        selectedEnd = currentLocation;
+      }
+      updateResult();
+      closeModal();
+    }
+
+    function updateResult() {
+      document.getElementById("result").innerHTML = `起点: ${selectedStart || "未选择"}，终点: ${selectedEnd || "未选择"}`;
+      findRoute();
+    }
+
+    function closeModal() {
+      document.getElementById("overlay").style.display = "none";
+      document.getElementById("selection-modal").style.display = "none";
+      document.getElementById("select-modal").style.display = "none";
+    }
+
+    function clearSelection() {
+      selectedStart = "";
+      selectedEnd = "";
+      updateResult();
+      clearCanvas();
+      document.getElementById("segment-info").innerHTML = "";
+    }
+
+    // ----------------------------
+    // 使用 Dijkstra 算法规划路径，并显示最快路径和第二快路径
+    function findRoute() {
+      if (selectedStart && selectedEnd) {
+        let bestPath = dijkstraPath(selectedStart, selectedEnd);
+        let secondPath = secondShortestPath(selectedStart, selectedEnd);
+        if (bestPath) {
+          let bestDetails = "";
+          let bestDistance = 0, bestTime = 0;
+          for (let i = 0; i < bestPath.length - 1; i++) {
+            let info = getSegmentInfo(bestPath[i], bestPath[i+1]);
+            bestDistance += info.distance;
+            bestTime += info.time;
+            bestDetails += `${bestPath[i]} → ${bestPath[i+1]}：${info.distance.toFixed(0)}米，${info.time.toFixed(1)}分钟<br>`;
+          }
+          let resultText = `最快路径: ${bestPath.join(" → ")}<br>总距离: ${bestDistance.toFixed(0)}米，总时长: ${bestTime.toFixed(1)}分钟<br>${bestDetails}`;
+          if (secondPath) {
+            let secondDetails = "";
+            let secondDistance = 0, secondTime = 0;
+            for (let i = 0; i < secondPath.length - 1; i++) {
+              let info = getSegmentInfo(secondPath[i], secondPath[i+1]);
+              secondDistance += info.distance;
+              secondTime += info.time;
+              secondDetails += `${secondPath[i]} → ${secondPath[i+1]}：${info.distance.toFixed(0)}米，${info.time.toFixed(1)}分钟<br>`;
+            }
+            resultText += `<br>第二快路径: ${secondPath.join(" → ")}<br>总距离: ${secondDistance.toFixed(0)}米，总时长: ${secondTime.toFixed(1)}分钟<br>${secondDetails}`;
+          }
+          document.getElementById("result").innerHTML = resultText;
+          drawRoute(bestPath, secondPath);
+        } else {
+          document.getElementById("result").innerHTML = "无法到达";
+          clearCanvas();
+          document.getElementById("segment-info").innerHTML = "";
+        }
+      } else {
+        document.getElementById("result").innerHTML = "请选择有效的起点和终点";
+        clearCanvas();
+        document.getElementById("segment-info").innerHTML = "";
+      }
+    }
+
+    // ----------------------------
+    // 计算两节点间的距离和时长（先查 manualSegmentInfo，如无则采用默认计算）
+    function getSegmentInfo(node1, node2) {
+      let key = `${node1}-${node2}`;
+      if (manualSegmentInfo[key]) {
+        return manualSegmentInfo[key];
+      }
+      let coord1 = nodeCoordinates[node1];
+      let coord2 = nodeCoordinates[node2];
+      if (!coord1 || !coord2) return { distance: 0, time: 0 };
+      let dx = Math.abs(coord1.left - coord2.left);
+      let dy = Math.abs(coord1.top - coord2.top);
+      let distance = (dx + dy) * 10;
+      let time = distance / 80;
+      return { distance, time };
+    }
+
+    // ----------------------------
+    // 使用 Canvas 绘制路径：最快路径以蓝色实线，第二快路径（如果存在）以红色虚线绘制
+    function drawRoute(bestPath, secondPath) {
+      const canvas = document.getElementById("routeCanvas");
+      const ctx = canvas.getContext("2d");
+      clearCanvas();
+      const container = document.getElementById("map-container");
+      const cw = container.clientWidth;
+      const ch = container.clientHeight;
+      function getNodePos(node) {
+        let coord = nodeCoordinates[node];
+        if (coord) {
+          return { x: (coord.left / 100) * cw, y: (coord.top / 100) * ch };
+        }
+        return null;
+      }
+      // 绘制最快路径（蓝色实线）
+      if (bestPath && bestPath.length > 1) {
+        ctx.strokeStyle = "blue";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        let pos = getNodePos(bestPath[0]);
+        if (!pos) return;
+        ctx.moveTo(pos.x, pos.y);
+        for (let i = 1; i < bestPath.length; i++) {
+          pos = getNodePos(bestPath[i]);
+          if (!pos) continue;
+          ctx.lineTo(pos.x, pos.y);
+        }
+        ctx.stroke();
+      }
+      // 绘制第二快路径（红色虚线）
+      if (secondPath && secondPath.length > 1) {
+        ctx.strokeStyle = "red";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        let pos2 = getNodePos(secondPath[0]);
+        if (!pos2) return;
+        ctx.moveTo(pos2.x, pos2.y);
+        for (let i = 1; i < secondPath.length; i++) {
+          pos2 = getNodePos(secondPath[i]);
+          if (!pos2) continue;
+          ctx.lineTo(pos2.x, pos2.y);
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    }
+
+    function clearCanvas() {
+      const canvas = document.getElementById("routeCanvas");
+      const ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    // ----------------------------
+    // 求第二快路径：对最快路径中每条边暂时移除后计算备选路径，返回成本最低且大于最快路径的备选路径
+    function secondShortestPath(start, end) {
+      let bestPath = dijkstraPath(start, end);
+      if (!bestPath) return null;
+      let bestCost = getPathCost(bestPath);
+      let candidates = [];
+      for (let i = 0; i < bestPath.length - 1; i++) {
+        let u = bestPath[i], v = bestPath[i+1];
+        let removedUV = [];
+        let removedVU = [];
+        if (roadNetwork[u]) {
+          let idx = roadNetwork[u].indexOf(v);
+          if (idx !== -1) {
+            removedUV = roadNetwork[u].splice(idx, 1);
+          }
+        }
+        if (roadNetwork[v]) {
+          let idx = roadNetwork[v].indexOf(u);
+          if (idx !== -1) {
+            removedVU = roadNetwork[v].splice(idx, 1);
+          }
+        }
+        let candidate = dijkstraPath(start, end);
+        if (candidate) {
+          let cost = getPathCost(candidate);
+          if (cost > bestCost) {
+            candidates.push({ path: candidate, cost: cost });
+          }
+        }
+        if (removedUV.length > 0) {
+          roadNetwork[u].push(v);
+        }
+        if (removedVU.length > 0) {
+          roadNetwork[v].push(u);
+        }
+      }
+      if (candidates.length === 0) return null;
+      candidates.sort((a, b) => a.cost - b.cost);
+      return candidates[0].path;
+    }
+
+    function getPathCost(path) {
+      let cost = 0;
+      for (let i = 0; i < path.length - 1; i++) {
+        cost += getSegmentInfo(path[i], path[i+1]).distance;
+      }
+      return cost;
+    }
+
+    // ----------------------------
+    // 点击建筑 marker 弹出选择框（仅限建筑节点可选）
+    function openSelectionModal(location) {
+      if (["Dorm4", "Teach1", "Teach2", "Teach5"].includes(location)) {
+        currentLocation = location;
+        document.getElementById("overlay").style.display = "block";
+        document.getElementById("selection-modal").style.display = "block";
+      }
+    }
+
+    // ----------------------------
+    // 点击上方按钮，弹出下拉菜单供用户选择
+    function openSelectModal(type) {
+      currentSelectType = type;
+      const selectModal = document.getElementById("select-modal");
+      const selectLabel = document.getElementById("select-label");
+      selectLabel.innerText = type === "start" ? "请选择起点" : "请选择终点";
+      const selectElem = document.getElementById("select-location");
+      selectElem.innerHTML = "";
+      const buildingNodes = ["Dorm4", "Teach1", "Teach2", "Teach5"];
+      buildingNodes.forEach(node => {
+        let option = document.createElement("option");
+        option.value = node;
+        option.text = node;
+        selectElem.appendChild(option);
+      });
+      document.getElementById("overlay").style.display = "block";
+      selectModal.style.display = "block";
+    }
+
+    function confirmSelect() {
+      const selectElem = document.getElementById("select-location");
+      const chosen = selectElem.value;
+      if (currentSelectType === "start") {
+        selectedStart = chosen;
+      } else {
+        selectedEnd = chosen;
+      }
+      updateResult();
+      closeModal();
+    }
+
+    // ----------------------------
+    // 建筑 marker 弹窗中选择设为起点/终点
+    function setPoint(type) {
+      if (type === "start") {
+        selectedStart = currentLocation;
+      } else if (type === "end") {
+        selectedEnd = currentLocation;
+      }
+      updateResult();
+      closeModal();
+    }
+
+    function updateResult() {
+      document.getElementById("result").innerHTML = `起点: ${selectedStart || "未选择"}，终点: ${selectedEnd || "未选择"}`;
+      findRoute();
+    }
+
+    function closeModal() {
+      document.getElementById("overlay").style.display = "none";
+      document.getElementById("selection-modal").style.display = "none";
+      document.getElementById("select-modal").style.display = "none";
+    }
+
+    function clearSelection() {
+      selectedStart = "";
+      selectedEnd = "";
+      updateResult();
+      clearCanvas();
+      document.getElementById("segment-info").innerHTML = "";
+    }
+
+    // ----------------------------
+    // 使用 Dijkstra 算法规划路径，并显示最快路径和第二快路径
+    function findRoute() {
+      if (selectedStart && selectedEnd) {
+        let bestPath = dijkstraPath(selectedStart, selectedEnd);
+        let secondPath = secondShortestPath(selectedStart, selectedEnd);
+        if (bestPath) {
+          let bestDetails = "";
+          let bestDistance = 0, bestTime = 0;
+          for (let i = 0; i < bestPath.length - 1; i++) {
+            let info = getSegmentInfo(bestPath[i], bestPath[i+1]);
+            bestDistance += info.distance;
+            bestTime += info.time;
+            bestDetails += `${bestPath[i]} → ${bestPath[i+1]}：${info.distance.toFixed(0)}米，${info.time.toFixed(1)}分钟<br>`;
+          }
+          let resultText = `最快路径: ${bestPath.join(" → ")}<br>总距离: ${bestDistance.toFixed(0)}米，总时长: ${bestTime.toFixed(1)}分钟<br>${bestDetails}`;
+          if (secondPath) {
+            let secondDetails = "";
+            let secondDistance = 0, secondTime = 0;
+            for (let i = 0; i < secondPath.length - 1; i++) {
+              let info = getSegmentInfo(secondPath[i], secondPath[i+1]);
+              secondDistance += info.distance;
+              secondTime += info.time;
+              secondDetails += `${secondPath[i]} → ${secondPath[i+1]}：${info.distance.toFixed(0)}米，${info.time.toFixed(1)}分钟<br>`;
+            }
+            resultText += `<br>第二快路径: ${secondPath.join(" → ")}<br>总距离: ${secondDistance.toFixed(0)}米，总时长: ${secondTime.toFixed(1)}分钟<br>${secondDetails}`;
+          }
+          document.getElementById("result").innerHTML = resultText;
+          drawRoute(bestPath, secondPath);
+        } else {
+          document.getElementById("result").innerHTML = "无法到达";
+          clearCanvas();
+          document.getElementById("segment-info").innerHTML = "";
+        }
+      } else {
+        document.getElementById("result").innerHTML = "请选择有效的起点和终点";
+        clearCanvas();
+        document.getElementById("segment-info").innerHTML = "";
+      }
+    }
+
+    // ----------------------------
+    // 使用 Dijkstra 算法规划路径（权重取预设的距离）
+    function dijkstraPath(start, end) {
+      const distances = {};
+      const previous = {};
+      const nodes = new Set();
+      for (let node in roadNetwork) {
+        distances[node] = Infinity;
+        previous[node] = null;
+        nodes.add(node);
+      }
+      distances[start] = 0;
+      while (nodes.size > 0) {
+        let current = null;
+        for (let node of nodes) {
+          if (current === null || distances[node] < distances[current]) {
+            current = node;
+          }
+        }
+        if (current === end) break;
+        nodes.delete(current);
+        for (let neighbor of roadNetwork[current] || []) {
+          let info = getSegmentInfo(current, neighbor);
+          let alt = distances[current] + info.distance;
+          if (alt < distances[neighbor]) {
+            distances[neighbor] = alt;
+            previous[neighbor] = current;
+          }
+        }
+      }
+      let path = [];
+      let curr = end;
+      while (curr) {
+        path.unshift(curr);
+        curr = previous[curr];
+      }
+      return path[0] === start ? path : null;
+    }
+
+    // ----------------------------
+    // 求第二快路径：对最快路径中每条边暂时移除后计算备选路径，返回成本最低且大于最快路径的备选路径
+    function secondShortestPath(start, end) {
+      let bestPath = dijkstraPath(start, end);
+      if (!bestPath) return null;
+      let bestCost = getPathCost(bestPath);
+      let candidates = [];
+      for (let i = 0; i < bestPath.length - 1; i++) {
+        let u = bestPath[i], v = bestPath[i+1];
+        let removedUV = [];
+        let removedVU = [];
+        if (roadNetwork[u]) {
+          let idx = roadNetwork[u].indexOf(v);
+          if (idx !== -1) {
+            removedUV = roadNetwork[u].splice(idx, 1);
+          }
+        }
+        if (roadNetwork[v]) {
+          let idx = roadNetwork[v].indexOf(u);
+          if (idx !== -1) {
+            removedVU = roadNetwork[v].splice(idx, 1);
+          }
+        }
+        let candidate = dijkstraPath(start, end);
+        if (candidate) {
+          let cost = getPathCost(candidate);
+          if (cost > bestCost) {
+            candidates.push({ path: candidate, cost: cost });
+          }
+        }
+        if (removedUV.length > 0) {
+          roadNetwork[u].push(v);
+        }
+        if (removedVU.length > 0) {
+          roadNetwork[v].push(u);
+        }
+      }
+      if (candidates.length === 0) return null;
+      candidates.sort((a, b) => a.cost - b.cost);
+      return candidates[0].path;
+    }
+
+    function getPathCost(path) {
+      let cost = 0;
+      for (let i = 0; i < path.length - 1; i++) {
+        cost += getSegmentInfo(path[i], path[i+1]).distance;
+      }
+      return cost;
+    }
+
+    // ----------------------------
+    // 使用 Canvas 绘制路径：最快路径以蓝色实线，第二快路径以红色虚线
+    function drawRoute(bestPath, secondPath) {
+      const canvas = document.getElementById("routeCanvas");
+      const ctx = canvas.getContext("2d");
+      clearCanvas();
+      const container = document.getElementById("map-container");
+      const cw = container.clientWidth;
+      const ch = container.clientHeight;
+      function getNodePos(node) {
+        let coord = nodeCoordinates[node];
+        if (coord) {
+          return { x: (coord.left / 100) * cw, y: (coord.top / 100) * ch };
+        }
+        return null;
+      }
+      // 绘制最快路径（蓝色实线）
+      if (bestPath && bestPath.length > 1) {
+        ctx.strokeStyle = "blue";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        let pos = getNodePos(bestPath[0]);
+        if (!pos) return;
+        ctx.moveTo(pos.x, pos.y);
+        for (let i = 1; i < bestPath.length; i++) {
+          pos = getNodePos(bestPath[i]);
+          if (!pos) continue;
+          ctx.lineTo(pos.x, pos.y);
+        }
+        ctx.stroke();
+      }
+      // 绘制第二快路径（红色虚线）
+      if (secondPath && secondPath.length > 1) {
+        ctx.strokeStyle = "red";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        let pos2 = getNodePos(secondPath[0]);
+        if (!pos2) return;
+        ctx.moveTo(pos2.x, pos2.y);
+        for (let i = 1; i < secondPath.length; i++) {
+          pos2 = getNodePos(secondPath[i]);
+          if (!pos2) continue;
+          ctx.lineTo(pos2.x, pos2.y);
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    }
+
+    function clearCanvas() {
+      const canvas = document.getElementById("routeCanvas");
+      const ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    // ----------------------------
+    // “转换”按钮：切换显示/隐藏路口节点（intersection-marker），并使名称显示在节点正中间
+    function toggleIntersections() {
+      intersectionsVisible = !intersectionsVisible;
+      const intersectionElems = document.querySelectorAll(".intersection-marker");
+      intersectionElems.forEach(elem => {
+        elem.style.display = intersectionsVisible ? "block" : "none";
+      });
+    }
+  </script>
+</body>
+</html>
