@@ -63,8 +63,8 @@
 
 "I18-I21": {distance:280, time:59},
 "I21-I18": {distance:280, time:59},
-"I20-I18": {distance:150, time:32},
-"I18-I20": {distance:150, time:32},
+"I25-I18": {distance:150, time:32},
+"I18-I25": {distance:150, time:32},
 
 
 "I22-I23": {distance:260, time:55},
