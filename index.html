@@ -5,895 +5,1066 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>校内交通指引</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-    }
-    #map-container {
-      position: relative;
-      width: 80%;
-      max-width: 800px;
-      margin: 20px auto;
-      border: 1px solid #ccc;
-    }
-    #map {
-      width: 100%;
-      height: auto;
-      display: block;
-    }
-    #routeCanvas {
-      position: absolute;
-      left: 0;
-      top: 0;
-      z-index: 2;
-      pointer-events: none;
-    }
-    /* 修改原有.marker样式 */
-    .marker {
-    /* 保持原有定位属性不变 */
+  body {
+    font-family: Arial, sans-serif;
+    text-align: center;
+  }
+  #map-container {
+    position: relative;
+    width: 80%;
+    max-width: 800px;
+    margin: 20px auto;
+    border: 1px solid #ccc;
+  }
+  #map {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+  #routeCanvas {
     position: absolute;
-    width: 20px;
-    height: 20px;
-    background-color: red;
+    left: 0;
+    top: 0;
+    z-index: 2;
+    pointer-events: none;
+  }
+  /* 修改原有.marker样式 */
+  .marker {
+  /* 保持原有定位属性不变 */
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  background-color: red;
+  border-radius: 50%;
+  cursor: pointer;
+  transform: translate(-50%, -50%);
+  color: white;
+  /* 修改文字排版属性 */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 12px; /* 默认字体大小 */
+  font-weight: bold;
+  line-height: 20px;
+  padding: 0 3px;
+  overflow: hidden;
+  }
+
+  /* 双字专用样式 */
+
+@keyframes dash {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.animated-path {
+  stroke-width: 4;
+  fill: none;
+  stroke-dasharray: 12;
+  stroke-dashoffset: 24;
+  animation: dash 1.5s linear infinite;
+  stroke-linecap: round;
+}
+
+@keyframes dash {
+  from {
+    stroke-dashoffset: 24;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* 新增 tooltip 样式 */
+.tooltip {
+  position: absolute;
+  transform: translate(-50%, -120%);
+  background: rgba(0, 0, 0, 0.85);
+  color: #fff;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 1000;
+  display: none;
+}
+
+  .marker.two-chars {
+  font-size: 10px; /* 缩小字号 */
+  letter-spacing: -0.5px; /* 调整字间距 */
+  flex-wrap: nowrap; /* 禁止换行 */
+  }
+  .intersection-marker {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    background-color: green;
     border-radius: 50%;
     cursor: pointer;
     transform: translate(-50%, -50%);
+    text-align: center;
     color: white;
-    /* 修改文字排版属性 */
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 12px; /* 默认字体大小 */
+    font-size: 8px;
+    line-height: 12px;
+    z-index: 3;
+    display: none;
+  }
+  .controls {
+    margin: 10px;
+  }
+  .button {
+    padding: 8px 15px;
+    margin: 5px;
+    cursor: pointer;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    min-width: 100px;
+  }
+  .modal, .select-modal, .travel-mode-modal {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: white;
+    padding: 20px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    z-index: 1000;
+  }
+  .modal button, .select-modal button, .travel-mode-modal button {
+    padding: 8px 15px;
+    margin: 5px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  .overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+  }
+  .error-message {
+    color: red;
+    font-size: 14px;
+    margin-top: 5px;
+  }
+  /* 新增样式 */
+  .path-details {
+    margin-top: 10px;
+    padding: 10px;
+    background-color: #f8f9fa;
+    border-radius: 5px;
+    display: none;
+  }
+  .toggle-detail {
+    padding: 5px 12px;
+    margin: 8px 0;
+    font-size: 14px;
+    background-color: #6c757d;
+    color: white;
+  }
+  .time-display {
+    color: #2c3e50;
     font-weight: bold;
-    line-height: 20px;
-    padding: 0 3px;
-    overflow: hidden;
-    }
-
-    /* 双字专用样式 */
-    .marker.two-chars {
-    font-size: 10px; /* 缩小字号 */
-    letter-spacing: -0.5px; /* 调整字间距 */
-    flex-wrap: nowrap; /* 禁止换行 */
-    }
-    .intersection-marker {
-      position: absolute;
-      width: 12px;
-      height: 12px;
-      background-color: green;
-      border-radius: 50%;
-      cursor: pointer;
-      transform: translate(-50%, -50%);
-      text-align: center;
-      color: white;
-      font-size: 8px;
-      line-height: 12px;
-      z-index: 3;
-      /*display: none;*/
-    }
-    .controls {
-      margin: 10px;
-    }
-    .button {
-      padding: 8px 15px;
-      margin: 5px;
-      cursor: pointer;
-      background-color: #007bff;
-      color: white;
-      border: none;
-      border-radius: 5px;
-      min-width: 100px;
-    }
-    .modal, .select-modal, .travel-mode-modal {
-      display: none;
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background-color: white;
-      padding: 20px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-      z-index: 1000;
-    }
-    .modal button, .select-modal button, .travel-mode-modal button {
-      padding: 8px 15px;
-      margin: 5px;
-      background-color: #007bff;
-      color: white;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-    }
-    .overlay {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background-color: rgba(0, 0, 0, 0.5);
-      z-index: 999;
-    }
-    .error-message {
-      color: red;
-      font-size: 14px;
-      margin-top: 5px;
-    }
-    /* 新增样式 */
-    .path-details {
-      margin-top: 10px;
-      padding: 10px;
-      background-color: #f8f9fa;
-      border-radius: 5px;
-      display: none;
-    }
-    .toggle-detail {
-      padding: 5px 12px;
-      margin: 8px 0;
-      font-size: 14px;
-      background-color: #6c757d;
-      color: white;
-    }
-    .time-display {
-      color: #2c3e50;
-      font-weight: bold;
-    }
+  }
   </style>
 </head>
 <body>
-    <h1>校内交通指引</h1>
-    <div class="controls">
-      <button id="start-btn" class="button" onclick="openSelectModal('start')">选择起点</button>
-      <button id="end-btn" class="button" onclick="openSelectModal('end')">选择终点</button>
-      <button class="button" onclick="findRoute()">查询</button>
-      <button class="button" onclick="clearSelection()">清除</button>
-      <button class="button" onclick="toggleIntersections()">转换</button>
-      <button id="travel-mode-btn" class="button" onclick="toggleTravelMode()">出行方式：骑行</button>
-    </div>
-    <div id="error-messages"></div>
-  
-    <div id="map-container">
-      <img id="map" src="https://ustc.edu.cn/__local/E/1D/C2/D8FA8F6B58664E70A761F93FE7A_A2797589_73D4A.jpg" alt="校园地图">
-      <canvas id="routeCanvas"></canvas>
-  
-      <!-- 建筑节点 -->
-      <div class="marker" style="top: 40%; left: 55%;" onclick="openSelectionModal('Dorm4')">4</div>
-      <div class="marker" style="top: 42%; left: 77%;" onclick="openSelectionModal('Teach1')">一教</div>
-      <div class="marker" style="top: 48%; left: 83%;" onclick="openSelectionModal('Teach2')">二教</div>
-      <div class="marker" style="top: 29.5%; left: 85.5%;" onclick="openSelectionModal('Teach5')">五教</div>
-      <div class="marker" style="top: 40.5%; left: 31.8%;" onclick="openSelectionModal('LibraryW')">西图</div>
-      <div class="marker" style="top: 45.5%; left: 22.5%;" onclick="openSelectionModal('Teach3')">三教</div>
-      <div class="marker" style="top: 40.5%; left: 12.34%;" onclick="openSelectionModal('PlaygroundW')">西操</div>
-      <div class="marker" style="top: 45.8%; left: 34.3%;" onclick="openSelectionModal('Force3')">力三</div>
-      <div class="marker" style="top: 52.5%; left: 37%;" onclick="openSelectionModal('FangHua')">芳华</div>
-  
-      <!-- 路口节点 东区 -->
-      <div class="intersection-marker" style="top: 43%; left: 56.7%;" onclick="openSelectionModal('I1')">I1</div>
-      <div class="intersection-marker" style="top: 44.5%; left: 70%;" onclick="openSelectionModal('I2')">I2</div>
-      <div class="intersection-marker" style="top: 43.5%; left: 80%;" onclick="openSelectionModal('I3')">I3</div>
-      <div class="intersection-marker" style="top: 39.5%; left: 79.5%;" onclick="openSelectionModal('I4')">I4</div>
-      <div class="intersection-marker" style="top: 44.5%; left: 73.5%;" onclick="openSelectionModal('I5')">I5</div>
-      <div class="intersection-marker" style="top: 40%; left: 73.5%;" onclick="openSelectionModal('I6')">I6</div>
-      <div class="intersection-marker" style="top: 43%; left: 65%;" onclick="openSelectionModal('I7')">I7</div>
-      <div class="intersection-marker" style="top: 50%; left: 80%;" onclick="openSelectionModal('I8')">I8</div>
-      <div class="intersection-marker" style="top: 32%; left: 80%;" onclick="openSelectionModal('I9')">I9</div>
-      <div class="intersection-marker" style="top: 43%; left: 42%;" onclick="openSelectionModal('I10')">I10</div>
-      <div class="intersection-marker" style="top: 50%; left: 85%;" onclick="openSelectionModal('I11')">I11</div>
-      <div class="intersection-marker" style="top: 43.5%; left: 84%;" onclick="openSelectionModal('I12')">I12</div>
-      <div class="intersection-marker" style="top: 39.3%; left: 83.8%;" onclick="openSelectionModal('I13')">I13</div>
-      <div class="intersection-marker" style="top: 39.75%; left: 76.5%;" onclick="openSelectionModal('I14')">I14</div>
-      <div class="intersection-marker" style="top: 50%; left: 82.5%;" onclick="openSelectionModal('I15')">I15</div>
-      <div class="intersection-marker" style="top: 32%; left: 83.8%;" onclick="openSelectionModal('I16')">I16</div>
-      <div class="intersection-marker" style="top: 49.5%; left: 74.3%;" onclick="openSelectionModal('I17')">I17</div>
-      <div class="intersection-marker" style="top: 54.8%; left: 74.5%;" onclick="openSelectionModal('I18')">I18</div>
-      <div class="intersection-marker" style="top: 54%; left: 80.5%;" onclick="openSelectionModal('I19')">I19</div>
-      <div class="intersection-marker" style="top: 31.8%; left: 76.5%;" onclick="openSelectionModal('I20')">I20</div>
-  
-      <!-- 路口节点 西区 -->
-      <div class="intersection-marker" style="top: 43.4%; left: 40%;" onclick="openSelectionModal('W1')">W1</div>
-      <div class="intersection-marker" style="top: 43.4%; left: 35.6%;" onclick="openSelectionModal('W2')">W2</div>
-      <div class="intersection-marker" style="top: 43.6%; left: 33.8%;" onclick="openSelectionModal('W3')">W3</div>
-      <div class="intersection-marker" style="top: 43.3%; left: 30%;" onclick="openSelectionModal('W4')">W4</div>
-      <div class="intersection-marker" style="top: 43.3%; left: 20%;" onclick="openSelectionModal('W5')">W5</div>
-      <div class="intersection-marker" style="top: 46.4%; left: 18.7%;" onclick="openSelectionModal('W6')">W6</div>
-      <div class="intersection-marker" style="top: 46.5%; left: 24.5%;" onclick="openSelectionModal('W7')">W7</div>
-      <div class="intersection-marker" style="top: 48.5%; left: 21.4%;" onclick="openSelectionModal('W8')">W8</div>
-      <div class="intersection-marker" style="top: 40.5%; left: 18.5%;" onclick="openSelectionModal('W9')">W9</div>
-      
-      <!-- <div class="intersection-marker" style="top: 43.6%; left: 32%;" onclick="openSelectionModal('W11')">W11</div> -->
-      
-    </div>
-    <p id="result">请选择起点和终点</p>
-    <p id="segment-info"></p>
-  
-    <!-- 弹窗 -->
-    <div class="overlay" id="overlay" onclick="closeModal()"></div>
-    <div class="modal" id="selection-modal">
-      <p>请选择操作：</p>
-      <button onclick="setPoint('start')">设为起点</button>
-      <button onclick="setPoint('end')">设为终点</button>
-    </div>
-    <div class="select-modal" id="select-modal">
-      <p id="select-label">请选择</p>
-      <select id="select-location">
-        <option value="">-- 请选择 --</option>
-      </select>
-      <br>
-      <button onclick="confirmSelect()">确认</button>
-    </div>
-    <div class="travel-mode-modal" id="travel-mode-modal">
-      <p>请选择出行方式：</p>
-      <select id="travel-mode">
-        <option value="">-- 请选择 --</option>
-        <option value="bike">骑行</option>
-        <option value="walk">步行</option>
-      </select>
-      <br>
-      <button onclick="confirmTravelMode()">确认</button>
-    </div>
-  
-    <script>
-      // 全局变量
-      let selectedStart = "";
-      let selectedEnd = "";
-      let currentLocation = "";
-      let currentSelectType = "";
-      let intersectionsVisible = true;
-      let travelMode = "bike";
-  
-      // 道路网络数据
-      const roadNetwork = {
-        "Dorm4": ["I1"],
-        "Teach1": ["I14"],
-        "Teach2": ["I15"],
-        "Teach5": ["I16"],
-        
-        "I1": ["Dorm4", "I10", "I7"],
-        "I2": ["I7", "I5"],
-        "I3": ["I4", "I12", "I8", "I5"],
-        "I4": ["I14", "I3", "I13", "I9"],
-        "I5": ["I2", "I3", "I6", "I17"],
-        "I6": ["I14", "I5"],
-        "I7": ["I1", "I2"],
-        "I8": ["I3", "I15", "I17", "I19"],
-        "I9": ["I4", "I16", "I20"],
-        "I10": ["I1","W1"],
-        "I11": ["I12", "I15"],
-        "I12": ["I3", "I11", "I13"],
-        "I13": ["I4", "I16", "I12"],
-        "I14": ["Teach1", "I4", "I6", "I20"],
-        "I15": ["Teach2", "I8", "I11"],
-        "I16": ["Teach5", "I9", "I13"],
-        "I17": ["I5", "I8", "I18"],
-        "I18": ["I17", "I19"],
-        "I19": ["I8", "I18"],
-  
-        "Teach3": ["W6", "W7", "W8"],
-        "PlaygroundW":["W9"],
-        "FangHua":["W2"],
-        "Force3":["W3"],
-        "LibraryW":["W4"],
-        
-        "W1": ["I10", "W2"],
-        "W2": ["W1", "FangHua", "W3"],
-        "W3": ["W2", "Force3", "W4"],
-        "W4": ["W3", "LibraryW", "W5", "W7"],
-        "W5": ["W4", "W6", "W9"],
-        "W6": ["W5", "Teach3", "W8"],
-        "W7": ["W4", "W8", "Teach3"],
-        "W8": ["W7", "W6", "Teach3"],
-        "W9": ["PlaygroundW", "W5"],
-        
-      };
-  
-      // 节点坐标
-      const nodeCoordinates = {
-        "Dorm4": { top: 40, left: 55 },
-        "Teach1": { top: 42, left: 77 },
-        "Teach2": { top: 48, left: 83 },
-        "Teach5": { top: 29.5, left: 85.5 },
-        "LibraryW": { top: 40.5, left: 31.8 },
-        "Teach3": { top: 45.5, left: 22.5 },
-        "PlaygroundW": { top: 40.5, left: 12.34 },
-        "Force3": { top: 45.8, left: 34.3 },
-        "FangHua": { top: 52.5, left: 37 },
-  
-        "I1": { top: 43, left: 56.7 },
-        "I2": { top: 44.5, left: 70 },
-        "I3": { top: 43.5, left: 80 },
-        "I4": { top: 39.5, left: 79.5 },
-        "I5": { top: 44.5, left: 73.5 },
-        "I6": { top: 40, left: 73.5 },
-        "I7": { top: 43, left: 65 },
-        "I8": { top: 50, left: 80 },
-        "I9": { top: 32, left: 80 },
-        "I10": { top: 43, left: 42 },
-        "I11": { top: 50, left: 85 },
-        "I12": { top: 43.5, left: 84 },
-        "I13": { top: 39.3, left: 83.8 },
-        "I14": { top: 39.75, left: 76.5 },
-        "I15": { top: 50, left: 82.5 },
-        "I16": { top: 32, left: 83.8 },
-        "I17": { top: 49.5, left: 74.4 },
-        "I18": { top: 54.8, left: 78.5 },
-        "I19": { top: 54, left: 80.5 },
-        "I20": { top: 31.8, left: 76.5 },
-  
-        "W1": { top: 43.3, left: 40 },
-        "W2": { top: 43.4, left: 35.6 },
-        "W3": { top: 43.6, left: 33.8 },
-        "W4": { top: 43.3, left: 30 },
-        "W5": { top: 43.3, left: 20 },
-        "W6": { top: 46.4, left: 18.7 },
-        "W7": { top: 46.5, left: 24.5 },
-        "W8": { top: 48.5, left: 21.4 },
-        "W9": { top: 40.5, left: 18.5 },
-        
-      };
-  
-      // 预设路径信息
-      const manualSegmentInfo = {
-          "I5-I17": { distance: 100, time: 31 },
-          "I17-I18": { distance: 100, time: 29 },
-          "I18-I19": { distance: 150, time: 49 },
-          "I19-I8": { distance: 110, time: 33 },
-          "I8-I3": { distance: 60, time: 17 },
-          "I3-I4": { distance: 60, time: 25 },
-          "I4-I13": { distance: 100, time: 33 },
-          "I13-I16": { distance: 200, time: 65 },
-          "I16-I9": { distance: 60, time: 23 },
-          "I9-I20": { distance: 70, time: 24 },
-          "I20-I14": { distance: 170, time: 66 },
-          "I14-I6": { distance: 70, time: 30 },
-          "I6-I5": { distance: 80, time: 31 },
-          "I1-I7": { distance: 220, time: 46 },
-          "I7-I2": { distance: 200, time: 42 },
-          "I2-I5": { distance: 190, time: 40 },
-          "I8-I15": { distance: 40, time: 10 },
-          "I15-I11": { distance: 60, time: 18 },
-          "I11-I12": { distance: 60, time: 26 },
-          "I12-I13": { distance: 60, time: 20 },
-          "I12-I3": { distance: 100, time: 30 },
-          "I9-I4": { distance: 180, time: 65 },
-          "I4-I14": { distance: 80, time: 20 },
-          "I5-I3": { distance: 150, time: 50 },
-          "I17-I8": { distance: 150, time: 47 },
-          "Dorm4-I1": { distance: 100, time: 30 },
-          "Teach1-I14": { distance: 10, time: 5 },
-          "Teach2-I15": { distance: 100, time: 30 },
-          "Teach5-I16": { distance: 10, time: 5 },
-          "I1-I10": { distance: 380, time: 125},
-          // 反向路径
-          "I17-I5": { distance: 100, time: 31 },
-          "I18-I17": { distance: 100, time: 29 },
-          "I19-I18": { distance: 150, time: 49 },
-          "I8-I19": { distance: 110, time: 33 },
-          "I3-I8": { distance: 60, time: 17 },
-          "I4-I3": { distance: 60, time: 25 },
-          "I13-I4": { distance: 100, time: 33 },
-          "I16-I13": { distance: 200, time: 65 },
-          "I9-I16": { distance: 60, time: 23 },
-          "I20-I9": { distance: 70, time: 24 },
-          "I14-I20": { distance: 170, time: 66 },
-          "I6-I14": { distance: 70, time: 30 },
-          "I5-I6": { distance: 80, time: 31 },
-          "I7-I1": { distance: 220, time: 46 },
-          "I2-I7": { distance: 200, time: 42 },
-          "I5-I2": { distance: 190, time: 40 },
-          "I15-I8": { distance: 40, time: 10 },
-          "I11-I15": { distance: 60, time: 18 },
-          "I12-I11": { distance: 60, time: 26 },
-          "I13-I12": { distance: 60, time: 20 },
-          "I3-I12": { distance: 100, time: 30 },
-          "I4-I9": { distance: 180, time: 65 },
-          "I14-I4": { distance: 80, time: 20 },
-          "I3-I5": { distance: 150, time: 50 },
-          "I8-I17": { distance: 150, time: 47 },
-          "I1-Dorm4": { distance: 100, time: 30 },
-          "I14-Teach1": { distance: 10, time: 5 },
-          "I15-Teach2": { distance: 100, time: 30 },
-          "I16-Teach5": { distance: 10, time: 5 },
-          "I10-I1": { distance: 380, time: 125},
-          // 西区
-          "I10-W1": { distance: 55, time: 45},
-          "W1-I10": { distance: 55, time: 45},
-          "W1-W2": { distance: 167, time: 52},
-          "W2-W1": { distance: 167, time: 31},
-          "W2-FangHua": { distance: 171, time: 40},
-          "FangHua-W2": { distance: 171, time: 40},
-          "W2-W3": { distance: 65, time: 16},
-          "W3-W2": { distance: 65, time: 16},
-          "W3-Force3": { distance: 30, time: 20},
-          "Force-W3": { distance: 30, time: 12},
-          "W3-W4": { distance: 145, time: 35},
-          "W4-W3": { distance: 145, time: 35},
-          "W4-LibraryW": { distance: 50, time: 18},
-          "LibraryW-W4": { distance: 50, time: 18},
-          "W4-W5": { distance: 340, time: 94},
-          "W5-W4": { distance: 340, time: 94},
-          "W5-W6": { distance: 70, time: 21},
-          "W6-W5": { distance: 70, time: 21},
-          "W6-Teach3": { distance: 20, time: 18},
-          "Teach3-W6": { distance: 20, time: 10},
-          "W7-Teach3": { distance: 20, time: 18},
-          "Teach3-W7": { distance: 20, time: 10},
-          "W8-Teach3": { distance: 20, time: 18},
-          "Teach3-W8": { distance: 20, time: 10},
-          "W4-W7": { distance: 280, time: 88},
-          "W7-W4": { distance: 280, time: 76},
-          "W7-W8": { distance: 120, time: 31},
-          "W8-W7": { distance: 120, time: 31},
-          "W8-W6": { distance: 110, time: 27},
-          "W6-W8": { distance: 110, time: 36},
-          "W5-W9": { distance: 60, time: 16},
-          "W9-W5": { distance: 60, time: 16},
-          "PlaygroundW-W9": { distance: 140, time: 44},
-          "W9-PlaygroundW": { distance: 140, time: 44},
-      };
+  <h1>校内交通指引</h1>
+  <div class="controls">
+    <button id="start-btn" class="button" onclick="openSelectModal('start')">选择起点</button>
+    <button id="end-btn" class="button" onclick="openSelectModal('end')">选择终点</button>
+    <button class="button" onclick="findRoute()">查询</button>
+    <button class="button" onclick="clearSelection()">清除</button>
+    <button class="button" onclick="toggleIntersections()">转换</button>
+    <button id="travel-mode-btn" class="button" onclick="toggleTravelMode()">出行方式：骑行</button>
+  </div>
+  <div id="error-messages"></div>
 
-    // 初始化Canvas尺寸
-    function initCanvas() {
-        document.querySelectorAll('.marker').forEach(marker => {
-            // 获取文字内容（去除空白字符）
-            const text = marker.innerText.trim();
-            
-            // 检测文字长度
-            if (text.length >= 2) {
-            // 添加双字样式类
-            marker.classList.add('two-chars');
-            
-            // 动态调整间距（可选）
-            const containerWidth = marker.offsetWidth;
-            const textWidth = Array.from(text).reduce((sum, char) => {
-                return sum + (char.charCodeAt(0) > 255 ? 12 : 6);}, 0);
-             // 中文字符算12px，字母数字算6px
-            
-            // 如果文字总宽度超过容器宽度
-            if (textWidth * 0.8 > containerWidth) { // 0.8是缩放系数
-                marker.style.fontSize = `${Math.floor(10 * containerWidth / textWidth)}px`;
-            }
-            }
-        });
-        const mapContainer = document.getElementById("map-container");
-        const canvas = document.getElementById("routeCanvas");
-        canvas.width = mapContainer.clientWidth;
-        canvas.height = mapContainer.clientHeight;
+  <div id="map-container">
+    <img id="map" src="https://ustc.edu.cn/__local/E/1D/C2/D8FA8F6B58664E70A761F93FE7A_A2797589_73D4A.jpg" alt="校园地图">
+    <canvas id="routeCanvas"></canvas>
+
+    <!-- 建筑节点 -->
+    <div class="marker" style="top: 40%; left: 55%;" onclick="openSelectionModal('Dorm4')">4</div>
+    <div class="marker" style="top: 42%; left: 77%;" onclick="openSelectionModal('Teach1')">一教</div>
+    <div class="marker" style="top: 48%; left: 83%;" onclick="openSelectionModal('Teach2')">二教</div>
+    <div class="marker" style="top: 29.5%; left: 85.5%;" onclick="openSelectionModal('Teach5')">五教</div>
+    <div class="marker" style="top: 40.5%; left: 31.8%;" onclick="openSelectionModal('LibraryW')">西图</div>
+    <div class="marker" style="top: 45.5%; left: 22.5%;" onclick="openSelectionModal('Teach3')">三教</div>
+    <div class="marker" style="top: 40.5%; left: 12.34%;" onclick="openSelectionModal('PlaygroundW')">西操</div>
+    <div class="marker" style="top: 56.1%; left: 68.3%;" onclick="openSelectionModal('PlaygroundE')">东操</div>
+    <div class="marker" style="top: 45.8%; left: 34.3%;" onclick="openSelectionModal('Force3')">力三</div>
+    <div class="marker" style="top: 52.5%; left: 37%;" onclick="openSelectionModal('FangHua')">芳华</div>
+    <div class="marker" style="top: 67%; left: 84.3%;" onclick="openSelectionModal('WuzhiB')">物B</div>
+    <div class="marker" style="top: 68.8%; left: 72.8%" onclick="openSelectionModal('HallE')">东礼</div>
+
+    <!-- 路口节点 东区 -->
+    <div class="intersection-marker" style="top: 43%; left: 56.7%;" onclick="openSelectionModal('I1')">I1</div>
+    <div class="intersection-marker" style="top: 44.5%; left: 70%;" onclick="openSelectionModal('I2')">I2</div>
+    <div class="intersection-marker" style="top: 43.5%; left: 80%;" onclick="openSelectionModal('I3')">I3</div>
+    <div class="intersection-marker" style="top: 39.5%; left: 79.5%;" onclick="openSelectionModal('I4')">I4</div>
+    <div class="intersection-marker" style="top: 44.5%; left: 73.5%;" onclick="openSelectionModal('I5')">I5</div>
+    <div class="intersection-marker" style="top: 40%; left: 73.5%;" onclick="openSelectionModal('I6')">I6</div>
+    <div class="intersection-marker" style="top: 43%; left: 65%;" onclick="openSelectionModal('I7')">I7</div>
+    <div class="intersection-marker" style="top: 50%; left: 80%;" onclick="openSelectionModal('I8')">I8</div>
+    <div class="intersection-marker" style="top: 32%; left: 80%;" onclick="openSelectionModal('I9')">I9</div>
+    <div class="intersection-marker" style="top: 43%; left: 42%;" onclick="openSelectionModal('I10')">I10</div>
+    <div class="intersection-marker" style="top: 50%; left: 85%;" onclick="openSelectionModal('I11')">I11</div>
+    <div class="intersection-marker" style="top: 43.5%; left: 84%;" onclick="openSelectionModal('I12')">I12</div>
+    <div class="intersection-marker" style="top: 39.3%; left: 83.8%;" onclick="openSelectionModal('I13')">I13</div>
+    <div class="intersection-marker" style="top: 39.75%; left: 76.5%;" onclick="openSelectionModal('I14')">I14</div>
+    <div class="intersection-marker" style="top: 50%; left: 82.5%;" onclick="openSelectionModal('I15')">I15</div>
+    <div class="intersection-marker" style="top: 32%; left: 83.8%;" onclick="openSelectionModal('I16')">I16</div>
+    <div class="intersection-marker" style="top: 49.5%; left: 74.3%;" onclick="openSelectionModal('I17')">I17</div>
+    <div class="intersection-marker" style="top: 54.8%; left: 74.5%;" onclick="openSelectionModal('I18')">I18</div>
+    <div class="intersection-marker" style="top: 54%; left: 80.5%;" onclick="openSelectionModal('I19')">I19</div>
+    <div class="intersection-marker" style="top: 31.8%; left: 76.5%;" onclick="openSelectionModal('I20')">I20</div>
+    <div class="intersection-marker" style="top: 68.8%; left: 74.8%;" onclick="openSelectionModal('I21')">I21</div>
+    <div class="intersection-marker" style="top: 67.8%; left: 78.5%;" onclick="openSelectionModal('I22')">I22</div>
+    <div class="intersection-marker" style="top: 54.3%; left: 77.7%;" onclick="openSelectionModal('I23')">I23</div>
+    <div class="intersection-marker" style="top: 68%; left: 82.7%;" onclick="openSelectionModal('I24')">I24</div>
+    <div class="intersection-marker" style="top: 55.3%; left: 70.5%;" onclick="openSelectionModal('I25')">I25</div>
+
+    <!-- 路口节点 西区 -->
+    <div class="intersection-marker" style="top: 43.4%; left: 40%;" onclick="openSelectionModal('W1')">W1</div>
+    <div class="intersection-marker" style="top: 43.4%; left: 35.6%;" onclick="openSelectionModal('W2')">W2</div>
+    <div class="intersection-marker" style="top: 43.6%; left: 33.8%;" onclick="openSelectionModal('W3')">W3</div>
+    <div class="intersection-marker" style="top: 43.3%; left: 30%;" onclick="openSelectionModal('W4')">W4</div>
+    <div class="intersection-marker" style="top: 43.3%; left: 20%;" onclick="openSelectionModal('W5')">W5</div>
+    <div class="intersection-marker" style="top: 46.4%; left: 18.7%;" onclick="openSelectionModal('W6')">W6</div>
+    <div class="intersection-marker" style="top: 46.5%; left: 24.5%;" onclick="openSelectionModal('W7')">W7</div>
+    <div class="intersection-marker" style="top: 48.5%; left: 21.4%;" onclick="openSelectionModal('W8')">W8</div>
+    <div class="intersection-marker" style="top: 40.5%; left: 18.5%;" onclick="openSelectionModal('W9')">W9</div>
+
+    <!-- <div class="intersection-marker" style="top: 43.6%; left: 32%;" onclick="openSelectionModal('W11')">W11</div> -->
+
+  </div>
+  <p id="result">请选择起点和终点</p>
+  <p id="segment-info"></p>
+
+  <!-- 弹窗 -->
+  <div class="overlay" id="overlay" onclick="closeModal()"></div>
+  <div class="modal" id="selection-modal">
+    <p>请选择操作：</p>
+    <button onclick="setPoint('start')">设为起点</button>
+    <button onclick="setPoint('end')">设为终点</button>
+  </div>
+  <div class="select-modal" id="select-modal">
+    <p id="select-label">请选择</p>
+    <select id="select-location">
+    <option value="">-- 请选择 --</option>
+    </select>
+    <br>
+    <button onclick="confirmSelect()">确认</button>
+  </div>
+  <div class="travel-mode-modal" id="travel-mode-modal">
+    <p>请选择出行方式：</p>
+    <select id="travel-mode">
+    <option value="">-- 请选择 --</option>
+    <option value="bike">骑行</option>
+    <option value="walk">步行</option>
+    </select>
+    <br>
+    <button onclick="confirmTravelMode()">确认</button>
+  </div>
+
+  <script>
+    // 全局变量
+    let selectedStart = "";
+    let selectedEnd = "";
+    let currentLocation = "";
+    let currentSelectType = "";
+    let intersectionsVisible = false;
+    let travelMode = "bike";
+
+    // 道路网络数据
+    const roadNetwork = {
+    "Dorm4": ["I1"],
+    "Teach1": ["I14"],
+    "Teach2": ["I15"],
+    "Teach5": ["I16"],
+
+    "I1": ["Dorm4", "I10", "I7"],
+    "I2": ["I7", "I5"],
+    "I3": ["I4", "I12", "I8", "I5"],
+    "I4": ["I14", "I3", "I13", "I9"],
+    "I5": ["I2", "I3", "I6", "I17"],
+    "I6": ["I14", "I5"],
+    "I7": ["I1", "I2"],
+    "I8": ["I3", "I15", "I17", "I19"],
+    "I9": ["I4", "I16", "I20"],
+    "I10": ["I1","W1"],
+    "I11": ["I12", "I15"],
+    "I12": ["I3", "I11", "I13"],
+    "I13": ["I4", "I16", "I12"],
+    "I14": ["Teach1", "I4", "I6", "I20"],
+    "I15": ["Teach2", "I8", "I11"],
+    "I16": ["Teach5", "I9", "I13"],
+    "I17": ["I5", "I8", "I18"],
+    "I18": ["I17", "I19", "I21", "I25"],
+    "I19": ["I8", "I18"],
+    "I20": ["I14", "I9"],
+    "I21": ["I18", "I22","HallE"],
+    "I22": ["I21", "I23"],
+    "I23": ["I22","I18","I19"],
+    "I24": ["I22","WuzhiB"],
+    "I25": ["I18","PlaygroundE"],
+
+    "Teach3": ["W6", "W7", "W8"],
+    "PlaygroundW":["W9"],
+    "FangHua":["W2"],
+    "Force3":["W3"],
+    "LibraryW":["W4"],
+
+    "W1": ["I10", "W2"],
+    "W2": ["W1", "FangHua", "W3"],
+    "W3": ["W2", "Force3", "W4"],
+    "W4": ["W3", "LibraryW", "W5", "W7"],
+    "W5": ["W4", "W6", "W9"],
+    "W6": ["W5", "Teach3", "W8"],
+    "W7": ["W4", "W8", "Teach3"],
+    "W8": ["W7", "W6", "Teach3"],
+    "W9": ["PlaygroundW", "W5"],
+
+    "PlaygroundE":["I25"],
+    "WuzhiB":["I24"],
+    "HallE":["I21"],
+    };
+
+    // 节点坐标
+    const nodeCoordinates = {
+    "Dorm4": { top: 40, left: 55 },
+    "Teach1": { top: 42, left: 77 },
+    "Teach2": { top: 48, left: 83 },
+    "Teach5": { top: 29.5, left: 85.5 },
+    "LibraryW": { top: 40.5, left: 31.8 },
+    "Teach3": { top: 45.5, left: 22.5 },
+    "PlaygroundW": { top: 40.5, left: 12.34 },
+    "Force3": { top: 45.8, left: 34.3 },
+    "FangHua": { top: 52.5, left: 37 },
+    "PlaygroundE": { top: 56.1 , left: 68.3 },
+    "HallE": { top: 68.8 , left: 72.8 },
+    "WuzhiB": { top: 67, left: 84.3 },
+
+    "I1": { top: 43, left: 56.7 },
+    "I2": { top: 44.5, left: 70 },
+    "I3": { top: 43.5, left: 80 },
+    "I4": { top: 39.5, left: 79.5 },
+    "I5": { top: 44.5, left: 73.5 },
+    "I6": { top: 40, left: 73.5 },
+    "I7": { top: 43, left: 65 },
+    "I8": { top: 50, left: 80 },
+    "I9": { top: 32, left: 80 },
+    "I10": { top: 43, left: 42 },
+    "I11": { top: 50, left: 85 },
+    "I12": { top: 43.5, left: 84 },
+    "I13": { top: 39.3, left: 83.8 },
+    "I14": { top: 39.75, left: 76.5 },
+    "I15": { top: 50, left: 82.5 },
+    "I16": { top: 32, left: 83.8 },
+    "I17": { top: 49.5, left: 74.4 },
+    "I18": { top: 54.8, left: 74.5 },
+    "I19": { top: 54, left: 80.5 },
+    "I20": { top: 31.8, left: 76.5 },
+    "I21": { top: 68.8, left: 74.8 },
+    "I22": { top: 67.8, left: 78.5 },
+    "I23": { top: 54.3, left: 77.7 },
+    "I24": { top: 68, left: 82.7 },
+    "I25": { top: 55.3, left: 70.5 },
+
+    "W1": { top: 43.3, left: 40 },
+    "W2": { top: 43.4, left: 35.6 },
+    "W3": { top: 43.6, left: 33.8 },
+    "W4": { top: 43.3, left: 30 },
+    "W5": { top: 43.3, left: 20 },
+    "W6": { top: 46.4, left: 18.7 },
+    "W7": { top: 46.5, left: 24.5 },
+    "W8": { top: 48.5, left: 21.4 },
+    "W9": { top: 40.5, left: 18.5 },
+
+    };
+
+    // 预设路径信息
+    const manualSegmentInfo = {
+      "I5-I17": { distance: 100, time: 31 },
+      "I17-I18": { distance: 100, time: 29 },
+      "I18-I19": { distance: 150, time: 49 },
+      "I19-I8": { distance: 110, time: 33 },
+      "I8-I3": { distance: 60, time: 17 },
+      "I3-I4": { distance: 60, time: 25 },
+      "I4-I13": { distance: 100, time: 33 },
+      "I13-I16": { distance: 200, time: 65 },
+      "I16-I9": { distance: 60, time: 23 },
+      "I9-I20": { distance: 70, time: 24 },
+      "I20-I14": { distance: 170, time: 66 },
+      "I14-I6": { distance: 70, time: 30 },
+      "I6-I5": { distance: 80, time: 31 },
+      "I1-I7": { distance: 220, time: 46 },
+      "I7-I2": { distance: 200, time: 42 },
+      "I2-I5": { distance: 190, time: 40 },
+      "I8-I15": { distance: 40, time: 10 },
+      "I15-I11": { distance: 60, time: 18 },
+      "I11-I12": { distance: 60, time: 26 },
+      "I12-I13": { distance: 60, time: 20 },
+      "I12-I3": { distance: 100, time: 30 },
+      "I9-I4": { distance: 180, time: 65 },
+      "I4-I14": { distance: 80, time: 20 },
+      "I5-I3": { distance: 150, time: 50 },
+      "I17-I8": { distance: 150, time: 47 },
+      "Dorm4-I1": { distance: 100, time: 30 },
+      "Teach1-I14": { distance: 10, time: 5 },
+      "Teach2-I15": { distance: 100, time: 30 },
+      "Teach5-I16": { distance: 10, time: 5 },
+      "I1-I10": { distance: 380, time: 125},
+      // 反向路径
+      "I17-I5": { distance: 100, time: 31 },
+      "I18-I17": { distance: 100, time: 29 },
+      "I19-I18": { distance: 150, time: 49 },
+      "I8-I19": { distance: 110, time: 33 },
+      "I3-I8": { distance: 60, time: 17 },
+      "I4-I3": { distance: 60, time: 25 },
+      "I13-I4": { distance: 100, time: 33 },
+      "I16-I13": { distance: 200, time: 65 },
+      "I9-I16": { distance: 60, time: 23 },
+      "I20-I9": { distance: 70, time: 24 },
+      "I14-I20": { distance: 170, time: 66 },
+      "I6-I14": { distance: 70, time: 30 },
+      "I5-I6": { distance: 80, time: 31 },
+      "I7-I1": { distance: 220, time: 46 },
+      "I2-I7": { distance: 200, time: 42 },
+      "I5-I2": { distance: 190, time: 40 },
+      "I15-I8": { distance: 40, time: 10 },
+      "I11-I15": { distance: 60, time: 18 },
+      "I12-I11": { distance: 60, time: 26 },
+      "I13-I12": { distance: 60, time: 20 },
+      "I3-I12": { distance: 100, time: 30 },
+      "I4-I9": { distance: 180, time: 65 },
+      "I14-I4": { distance: 80, time: 20 },
+      "I3-I5": { distance: 150, time: 50 },
+      "I8-I17": { distance: 150, time: 47 },
+      "I1-Dorm4": { distance: 100, time: 30 },
+      "I14-Teach1": { distance: 10, time: 5 },
+      "I15-Teach2": { distance: 100, time: 30 },
+      "I16-Teach5": { distance: 10, time: 5 },
+      "I10-I1": { distance: 380, time: 125},
+      // 西区
+      "I10-W1": { distance: 55, time: 45},
+      "W1-I10": { distance: 55, time: 45},
+      "W1-W2": { distance: 167, time: 52},
+      "W2-W1": { distance: 167, time: 31},
+      "W2-FangHua": { distance: 171, time: 40},
+      "FangHua-W2": { distance: 171, time: 40},
+      "W2-W3": { distance: 65, time: 16},
+      "W3-W2": { distance: 65, time: 16},
+      "W3-Force3": { distance: 30, time: 20},
+      "Force-W3": { distance: 30, time: 12},
+      "W3-W4": { distance: 145, time: 35},
+      "W4-W3": { distance: 145, time: 35},
+      "W4-LibraryW": { distance: 50, time: 18},
+      "LibraryW-W4": { distance: 50, time: 18},
+      "W4-W5": { distance: 340, time: 94},
+      "W5-W4": { distance: 340, time: 94},
+      "W5-W6": { distance: 70, time: 21},
+      "W6-W5": { distance: 70, time: 21},
+      "W6-Teach3": { distance: 20, time: 18},
+      "Teach3-W6": { distance: 20, time: 10},
+      "W7-Teach3": { distance: 20, time: 18},
+      "Teach3-W7": { distance: 20, time: 10},
+      "W8-Teach3": { distance: 20, time: 18},
+      "Teach3-W8": { distance: 20, time: 10},
+      "W4-W7": { distance: 280, time: 88},
+      "W7-W4": { distance: 280, time: 76},
+      "W7-W8": { distance: 120, time: 31},
+      "W8-W7": { distance: 120, time: 31},
+      "W8-W6": { distance: 110, time: 27},
+      "W6-W8": { distance: 110, time: 36},
+      "W5-W9": { distance: 60, time: 16},
+      "W9-W5": { distance: 60, time: 16},
+      "PlaygroundW-W9": { distance: 140, time: 44},
+      "W9-PlaygroundW": { distance: 140, time: 44},
+      //东区新增选点
+      "I25-PlaygroundE": { distance: 20, time: 10},
+      "PlaygroundE-I25": { distance: 20, time: 10},
+      "I21-HallE": { distance: 20, time: 10},
+      "HallE-I21": { distance: 20, time: 10},
+      "I24-WuzhiB": { distance: 20, time: 10},
+      "WuzhiB-I24": { distance: 20, time: 10},
+      "I18-I21": {distance:280, time:59},
+      "I21-I18": {distance:280, time:59},
+      "I25-I18": {distance:150, time:32},
+      "I18-I25": {distance:150, time:32},
+      "I22-I23": {distance:260, time:55},
+      "I23-I22": {distance:260, time:55},
+      "I22-I24": {distance:120, time:20},
+      "I24-I22": {distance:120, time:20},
+      "I22-I21": {distance:120, time:20},
+      "I21-I22": {distance:120, time:20},
+    };
+
+  // 初始化Canvas尺寸
+  function initCanvas() {
+    document.querySelectorAll('.marker').forEach(marker => {
+      // 获取文字内容（去除空白字符）
+      const text = marker.innerText.trim();
+
+      // 检测文字长度
+      if (text.length >= 2) {
+      // 添加双字样式类
+      marker.classList.add('two-chars');
+
+      // 动态调整间距（可选）
+      const containerWidth = marker.offsetWidth;
+      const textWidth = Array.from(text).reduce((sum, char) => {
+        return sum + (char.charCodeAt(0) > 255 ? 12 : 6);}, 0);
+       // 中文字符算12px，字母数字算6px
+
+      // 如果文字总宽度超过容器宽度
+      if (textWidth * 0.8 > containerWidth) { // 0.8是缩放系数
+        marker.style.fontSize = `${Math.floor(10 * containerWidth / textWidth)}px`;
+      }
+      }
+    });
+    const mapContainer = document.getElementById("map-container");
+    const canvas = document.getElementById("routeCanvas");
+    canvas.width = mapContainer.clientWidth;
+    canvas.height = mapContainer.clientHeight;
+  }
+  window.addEventListener("resize", initCanvas);
+  window.addEventListener("load", initCanvas);
+
+  // Dijkstra算法查找最短路径
+  function dijkstraPath(start, end) {
+    const distances = {};
+    const previous = {};
+    const nodes = new Set();
+
+    const allNodes = new Set(Object.keys(roadNetwork));
+    for (let nodeList of Object.values(roadNetwork)) {
+      nodeList.forEach(n => allNodes.add(n));
     }
-    window.addEventListener("resize", initCanvas);
-    window.addEventListener("load", initCanvas);
-
-    // Dijkstra算法查找最短路径
-    function dijkstraPath(start, end) {
-      const distances = {};
-      const previous = {};
-      const nodes = new Set();
-
-      for (let node in roadNetwork) {
-        distances[node] = Infinity;
-        previous[node] = null;
-        nodes.add(node);
-      }
-      distances[start] = 0;
-
-      while (nodes.size > 0) {
-        let current = null;
-        for (let node of nodes) {
-          if (current === null || distances[node] < distances[current]) {
-            current = node;
-          }
-        }
-        if (current === end) break;
-        nodes.delete(current);
-        
-        for (let neighbor of roadNetwork[current] || []) {
-          let info = getSegmentInfo(current, neighbor);
-          let alt = distances[current] + info.distance;
-          if (alt < distances[neighbor]) {
-            distances[neighbor] = alt;
-            previous[neighbor] = current;
-          }
-        }
-      }
-
-      let path = [];
-      let curr = end;
-      while (curr) {
-        path.unshift(curr);
-        curr = previous[curr];
-      }
-      return path[0] === start ? path : null;
+    for (let node of allNodes) {
+      distances[node] = Infinity;
+      previous[node] = null;
+      nodes.add(node);
     }
+    distances[start] = 0;
 
-    // 查找第二短路径
-    function secondShortestPath(start, end) {
-      let bestPath = dijkstraPath(start, end);
-      if (!bestPath) return null;
-      
-      let bestCost = getPathCost(bestPath);
-      let candidates = [];
-      
-      for (let i = 0; i < bestPath.length - 1; i++) {
-        let u = bestPath[i], v = bestPath[i+1];
-        
-        // 暂时移除边
-        let removedUV = removeEdge(u, v);
-        let removedVU = removeEdge(v, u);
-        
-        // 计算备选路径
-        let candidate = dijkstraPath(start, end);
-        if (candidate) {
-          let cost = getPathCost(candidate);
-          if (cost > bestCost) {
-            candidates.push({path: candidate, cost: cost});
-          }
-        }
-        
-        // 恢复边
-        restoreEdge(u, v, removedUV);
-        restoreEdge(v, u, removedVU);
-      }
-      
-      if (candidates.length === 0) return null;
-      candidates.sort((a, b) => a.cost - b.cost);
-      return candidates[0].path;
-    }
-
-    function removeEdge(u, v) {
-      let removed = [];
-      if (roadNetwork[u]) {
-        let idx = roadNetwork[u].indexOf(v);
-        if (idx !== -1) {
-          removed = roadNetwork[u].splice(idx, 1);
-        }
-      }
-      return removed;
-    }
-
-    function restoreEdge(u, v, removed) {
-      if (removed.length > 0) {
-        roadNetwork[u].push(v);
+    while (nodes.size > 0) {
+    let current = null;
+    for (let node of nodes) {
+      if (current === null || distances[node] < distances[current]) {
+      current = node;
       }
     }
+    // 🔴 若当前节点不可达，提前退出
+  if (distances[current] === Infinity) break;
+    if (current === end) break;
+    nodes.delete(current);
 
-    function getPathCost(path) {
-      let cost = 0;
-      for (let i = 0; i < path.length - 1; i++) {
-        cost += getSegmentInfo(path[i], path[i+1]).distance;
+    for (let neighbor of roadNetwork[current] || []) {
+      let info = getSegmentInfo(current, neighbor);
+      let alt = distances[current] + info.distance;
+      if (alt < distances[neighbor]) {
+      distances[neighbor] = alt;
+      previous[neighbor] = current;
       }
-      return cost;
+    }
     }
 
-    // 获取路段信息
-    function getSegmentInfo(node1, node2) {
-        let key = `${node1}-${node2}`;
-        if (manualSegmentInfo[key]) {
-            let time = manualSegmentInfo[key].time;
-            // 修改时间计算方式：骑行保持原时间，步行时间加倍
-            if (travelMode === "walk") time *= 2;
-            return { distance: manualSegmentInfo[key].distance, time: time };
-        }
-      
-      let coord1 = nodeCoordinates[node1];
-      let coord2 = nodeCoordinates[node2];
-      if (!coord1 || !coord2) return { distance: 0, time: 0 };
-      
-      let dx = Math.abs(coord1.left - coord2.left);
-      let dy = Math.abs(coord1.top - coord2.top);
-      let distance = (dx + dy) * 10;
-      let time = distance / 80;
-      if (travelMode === "walk") {
-        time *= 2; // 步行时间加倍
-      }
-      return { distance, time };
+    let path = [];
+    let curr = end;
+    while (curr) {
+    path.unshift(curr);
+    curr = previous[curr];
     }
+    return path[0] === start ? path : null;
+  }
 
-    // 绘制路径
-    function drawRoute(bestPath, secondPath) {
-      const canvas = document.getElementById("routeCanvas");
-      const ctx = canvas.getContext("2d");
-      clearCanvas();
-      
-      const container = document.getElementById("map-container");
-      const cw = container.clientWidth;
-      const ch = container.clientHeight;
+  // 查找第二短路径
+  function secondShortestPath(start, end) {
+    let bestPath = dijkstraPath(start, end);
+    if (!bestPath) return null;
 
-      function getNodePos(node) {
-        let coord = nodeCoordinates[node];
-        if (coord) {
-          return { x: (coord.left / 100) * cw, y: (coord.top / 100) * ch };
-        }
-        return null;
-      }
+    let bestCost = getPathCost(bestPath);
+    let candidates = [];
 
-      // 绘制最快路径（蓝色实线）
-      if (bestPath && bestPath.length > 1) {
-        drawPath(ctx, bestPath, "blue", []);
-      }
-      
-      // 绘制第二快路径（红色虚线）
-      if (secondPath && secondPath.length > 1) {
-        drawPath(ctx, secondPath, "red", [5, 5]);
+    for (let i = 0; i < bestPath.length - 1; i++) {
+    let u = bestPath[i], v = bestPath[i+1];
+
+    // 暂时移除边
+    let removedUV = removeEdge(u, v);
+    let removedVU = removeEdge(v, u);
+
+    // 计算备选路径
+    let candidate = dijkstraPath(start, end);
+    if (candidate) {
+      let cost = getPathCost(candidate);
+      if (cost > bestCost) {
+      candidates.push({path: candidate, cost: cost});
       }
     }
 
-    function drawPath(ctx, path, color, dashPattern) {
-      const container = document.getElementById("map-container");
-      const cw = container.clientWidth;
-      const ch = container.clientHeight;
-      
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 2;
-      ctx.setLineDash(dashPattern);
-      ctx.beginPath();
-      
-      let pos = getNodePosition(path[0], cw, ch);
-      if (!pos) return;
-      ctx.moveTo(pos.x, pos.y);
-      
-      for (let i = 1; i < path.length; i++) {
-        pos = getNodePosition(path[i], cw, ch);
-        if (!pos) continue;
-        ctx.lineTo(pos.x, pos.y);
-      }
-      
-      ctx.stroke();
-      ctx.setLineDash([]);
+    // 恢复边
+    restoreEdge(u, v, removedUV);
+    restoreEdge(v, u, removedVU);
     }
 
-    function getNodePosition(node, cw, ch) {
-      let coord = nodeCoordinates[node];
-      if (coord) {
-        return { x: (coord.left / 100) * cw, y: (coord.top / 100) * ch };
-      }
-      return null;
+    if (candidates.length === 0) return null;
+    candidates.sort((a, b) => a.cost - b.cost);
+    return candidates[0].path;
+  }
+
+  function removeEdge(u, v) {
+    let removed = [];
+    if (roadNetwork[u]) {
+    let idx = roadNetwork[u].indexOf(v);
+    if (idx !== -1) {
+      removed = roadNetwork[u].splice(idx, 1);
+    }
+    }
+    return removed;
+  }
+
+  function restoreEdge(u, v, removed) {
+    if (removed.length > 0) {
+    roadNetwork[u].push(v);
+    }
+  }
+
+  function getPathCost(path) {
+    let cost = 0;
+    for (let i = 0; i < path.length - 1; i++) {
+    cost += getSegmentInfo(path[i], path[i+1]).distance;
+    }
+    return cost;
+  }
+
+  // 获取路段信息
+  function getSegmentInfo(node1, node2) {
+    let key = `${node1}-${node2}`;
+    if (manualSegmentInfo[key]) {
+      let time = manualSegmentInfo[key].time;
+      // 修改时间计算方式：骑行保持原时间，步行时间加倍
+      if (travelMode === "walk") time *= 2;
+      return { distance: manualSegmentInfo[key].distance, time: time };
     }
 
-    function clearCanvas() {
-      const canvas = document.getElementById("routeCanvas");
-      const ctx = canvas.getContext("2d");
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    let coord1 = nodeCoordinates[node1];
+    let coord2 = nodeCoordinates[node2];
+    if (!coord1 || !coord2) return { distance: 0, time: 0 };
+
+    let dx = Math.abs(coord1.left - coord2.left);
+    let dy = Math.abs(coord1.top - coord2.top);
+    let distance = (dx + dy) * 10;
+    let time = distance / 80;
+    if (travelMode === "walk") {
+    time *= 2; // 步行时间加倍
+    }
+    return { distance, time };
+  }
+
+  // 绘制路径
+  function drawRoute(bestPath, secondPath) {
+    const canvas = document.getElementById("routeCanvas");
+    const ctx = canvas.getContext("2d");
+    clearCanvas();
+
+    const container = document.getElementById("map-container");
+    const cw = container.clientWidth;
+    const ch = container.clientHeight;
+
+    function getNodePos(node) {
+    let coord = nodeCoordinates[node];
+    if (coord) {
+      return { x: (coord.left / 100) * cw, y: (coord.top / 100) * ch };
+    }
+    return null;
     }
 
-    // 弹窗相关函数
-    function openSelectionModal(location) {
-      if (["Dorm4", "Teach1", "Teach2", "Teach5","PlaygroundW","LibraryW","Teach3","Force3","FangHua"].includes(location)) {
-        currentLocation = location;
-        document.getElementById("overlay").style.display = "block";
-        document.getElementById("selection-modal").style.display = "block";
-      }
+    // 绘制最快路径（蓝色实线）
+    if (bestPath && bestPath.length > 1) {
+    drawPath(ctx, bestPath, "blue", []);
     }
 
-    function openSelectModal(type) {
-      currentSelectType = type;
-      const selectModal = document.getElementById("select-modal");
-      const selectLabel = document.getElementById("select-label");
-      selectLabel.innerText = type === "start" ? "请选择起点" : "请选择终点";
-      
-      const selectElem = document.getElementById("select-location");
-      selectElem.innerHTML = "";
-      
-      // 添加空选项
-      let emptyOption = document.createElement("option");
-      emptyOption.value = "";
-      emptyOption.text = "-- 请选择 --";
-      selectElem.appendChild(emptyOption);
-      
-      const buildingNodes = ["Dorm4", "Teach1", "Teach2", "Teach5", "LibraryW", "Teach3", "PlaygroundW", "Force3", "FangHua"];
-      buildingNodes.forEach(node => {
-        let option = document.createElement("option");
-        option.value = node;
-        option.text = node;
-        selectElem.appendChild(option);
-      });
-      
-      // 设置当前选择的值
-      if (type === "start" && selectedStart) {
-        selectElem.value = selectedStart;
-      } else if (type === "end" && selectedEnd) {
-        selectElem.value = selectedEnd;
-      }
-      
-      document.getElementById("overlay").style.display = "block";
-      selectModal.style.display = "block";
+    // 绘制第二快路径（红色虚线）
+    if (secondPath && secondPath.length > 1) {
+    drawPath(ctx, secondPath, "red", [5, 5]);
+    }
+  }
+
+  function drawPath(ctx, path, color, dashPattern) {
+    const container = document.getElementById("map-container");
+    const cw = container.clientWidth;
+    const ch = container.clientHeight;
+
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.setLineDash(dashPattern);
+    ctx.beginPath();
+
+    let pos = getNodePosition(path[0], cw, ch);
+    if (!pos) return;
+    ctx.moveTo(pos.x, pos.y);
+
+    for (let i = 1; i < path.length; i++) {
+    pos = getNodePosition(path[i], cw, ch);
+    if (!pos) continue;
+    ctx.lineTo(pos.x, pos.y);
     }
 
-    // 删除openTravelModeModal和相关弹窗处理函数
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
 
-    // 新增：切换出行方式函数
-    function toggleTravelMode() {
-    travelMode = travelMode === "bike" ? "walk" : "bike";
-    const btn = document.getElementById("travel-mode-btn");
-    btn.textContent = `出行方式：${travelMode === "bike" ? "骑行" : "步行"}`;
-    btn.classList.toggle("active");
+  function getNodePosition(node, cw, ch) {
+    let coord = nodeCoordinates[node];
+    if (coord) {
+    return { x: (coord.left / 100) * cw, y: (coord.top / 100) * ch };
+    }
+    return null;
+  }
+
+  function clearCanvas() {
+    const canvas = document.getElementById("routeCanvas");
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+
+  // 弹窗相关函数
+  function openSelectionModal(location) {
+    if (["Dorm4", "Teach1", "Teach2", "Teach5", "LibraryW", "HallE", "WuzhiB", "Teach3", "PlaygroundW", "Force3", "FangHua", "PlaygroundE",].includes(location)) {
+    currentLocation = location;
+    document.getElementById("overlay").style.display = "block";
+    document.getElementById("selection-modal").style.display = "block";
+    }
+  }
+
+  function openSelectModal(type) {
+    currentSelectType = type;
+    const selectModal = document.getElementById("select-modal");
+    const selectLabel = document.getElementById("select-label");
+    selectLabel.innerText = type === "start" ? "请选择起点" : "请选择终点";
+
+    const selectElem = document.getElementById("select-location");
+    selectElem.innerHTML = "";
+
+    // 添加空选项
+    let emptyOption = document.createElement("option");
+    emptyOption.value = "";
+    emptyOption.text = "-- 请选择 --";
+    selectElem.appendChild(emptyOption);
+
+    const buildingNodes = ["Dorm4", "Teach1", "Teach2", "Teach5", "LibraryW", "HallE", "WuzhiB", "Teach3", "PlaygroundW", "Force3", "FangHua", "PlaygroundE",];
+    buildingNodes.forEach(node => {
+    let option = document.createElement("option");
+    option.value = node;
+    option.text = node;
+    selectElem.appendChild(option);
+    });
+
+    // 设置当前选择的值
+    if (type === "start" && selectedStart) {
+    selectElem.value = selectedStart;
+    } else if (type === "end" && selectedEnd) {
+    selectElem.value = selectedEnd;
+    }
+
+    document.getElementById("overlay").style.display = "block";
+    selectModal.style.display = "block";
+  }
+
+  // 删除openTravelModeModal和相关弹窗处理函数
+
+  // 新增：切换出行方式函数
+  function toggleTravelMode() {
+  travelMode = travelMode === "bike" ? "walk" : "bike";
+  const btn = document.getElementById("travel-mode-btn");
+  btn.textContent = `出行方式：${travelMode === "bike" ? "骑行" : "步行"}`;
+  btn.classList.toggle("active");
+  updateResult();
+  }
+
+  function confirmSelect() {
+    const selectElem = document.getElementById("select-location");
+    const chosen = selectElem.value;
+
+    if (!chosen) {
+    showError("请选择一个有效的选项");
+    return;
+    }
+
+    if (currentSelectType === "start") {
+    selectedStart = chosen;
+    document.getElementById("start-btn").textContent = chosen;
+    } else {
+    selectedEnd = chosen;
+    document.getElementById("end-btn").textContent = chosen;
+    }
+
+    clearError();
     updateResult();
+    closeModal();
+  }
+
+  function confirmTravelMode() {
+    const selectedMode = document.getElementById("travel-mode").value;
+
+    if (!selectedMode) {
+    showError("请选择一种出行方式");
+    return;
     }
 
-    function confirmSelect() {
-      const selectElem = document.getElementById("select-location");
-      const chosen = selectElem.value;
-      
-      if (!chosen) {
-        showError("请选择一个有效的选项");
-        return;
-      }
-      
-      if (currentSelectType === "start") {
-        selectedStart = chosen;
-        document.getElementById("start-btn").textContent = chosen;
-      } else {
-        selectedEnd = chosen;
-        document.getElementById("end-btn").textContent = chosen;
-      }
-      
-      clearError();
-      updateResult();
-      closeModal();
+    travelMode = selectedMode;
+    document.getElementById("travel-mode-btn").textContent =
+    selectedMode === "walk" ? "步行" : "骑行";
+
+    clearError();
+    updateResult();
+    closeModal();
+  }
+
+  function setPoint(type) {
+    if (type === "start") {
+    selectedStart = currentLocation;
+    document.getElementById("start-btn").textContent = currentLocation;
+    } else if (type === "end") {
+    selectedEnd = currentLocation;
+    document.getElementById("end-btn").textContent = currentLocation;
     }
 
-    function confirmTravelMode() {
-      const selectedMode = document.getElementById("travel-mode").value;
-      
-      if (!selectedMode) {
-        showError("请选择一种出行方式");
-        return;
-      }
-      
-      travelMode = selectedMode;
-      document.getElementById("travel-mode-btn").textContent = 
-        selectedMode === "walk" ? "步行" : "骑行";
-      
-      clearError();
-      updateResult();
-      closeModal();
+    updateResult();
+    closeModal();
+  }
+
+  function updateResult() {
+    let startText = selectedStart || "未选择起点";
+    let endText = selectedEnd || "未选择终点";
+    let modeText = travelMode ? (travelMode === "walk" ? "步行" : "骑行") : "未选择出行方式";
+
+    document.getElementById("result").innerHTML = `起点: ${startText}，终点: ${endText}，出行方式: ${modeText}`;
+
+    if (selectedStart && selectedEnd && travelMode) {
+    findRoute();
+    }
+  }
+
+  function closeModal() {
+    document.getElementById("overlay").style.display = "none";
+    document.getElementById("selection-modal").style.display = "none";
+    document.getElementById("select-modal").style.display = "none";
+    document.getElementById("travel-mode-modal").style.display = "none";
+  }
+
+  function clearSelection() {
+    selectedStart = "";
+    selectedEnd = "";
+    travelMode = "";
+
+    document.getElementById("start-btn").textContent = "选择起点";
+    document.getElementById("end-btn").textContent = "选择终点";
+    document.getElementById("travel-mode-btn").textContent = "出行方式";
+
+    updateResult();
+    clearCanvas();
+    document.getElementById("segment-info").innerHTML = "";
+    clearError();
+  }
+
+  // 查找并显示路径
+  // 修改后的findRoute函数
+  function findRoute() {
+    clearError();
+
+    if (!selectedStart) {
+    showError("请选择起点");
+    return;
     }
 
-    function setPoint(type) {
-      if (type === "start") {
-        selectedStart = currentLocation;
-        document.getElementById("start-btn").textContent = currentLocation;
-      } else if (type === "end") {
-        selectedEnd = currentLocation;
-        document.getElementById("end-btn").textContent = currentLocation;
-      }
-      
-      updateResult();
-      closeModal();
+    if (!selectedEnd) {
+    showError("请选择终点");
+    return;
     }
 
-    function updateResult() {
-      let startText = selectedStart || "未选择起点";
-      let endText = selectedEnd || "未选择终点";
-      let modeText = travelMode ? (travelMode === "walk" ? "步行" : "骑行") : "未选择出行方式";
-      
-      document.getElementById("result").innerHTML = `起点: ${startText}，终点: ${endText}，出行方式: ${modeText}`;
-      
-      if (selectedStart && selectedEnd && travelMode) {
-        findRoute();
-      }
+    let bestPath = dijkstraPath(selectedStart, selectedEnd);
+    let secondPath = secondShortestPath(selectedStart, selectedEnd);
+
+    if (bestPath) {
+    let resultHTML = formatPathResult("最快路径", bestPath);
+
+    if (secondPath) {
+      resultHTML += formatPathResult("第二快路径", secondPath);
     }
 
-    function closeModal() {
-      document.getElementById("overlay").style.display = "none";
-      document.getElementById("selection-modal").style.display = "none";
-      document.getElementById("select-modal").style.display = "none";
-      document.getElementById("travel-mode-modal").style.display = "none";
+    document.getElementById("result").innerHTML = resultHTML;
+    drawRoute(bestPath, secondPath);
+    } else {
+    document.getElementById("result").innerHTML = "无法到达";
+    clearCanvas();
+    }
+    document.getElementById("segment-info").innerHTML = "";
+  }
+
+  // 修改时间格式化函数
+  function formatTime(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    if(mins) {
+    return `${mins}分${secs.toString().padStart(2, '0')}秒`;
+    }
+    return `${secs.toString().padStart(2, '0')}秒`;
+  }
+   // 修改路径结果显示函数
+   function formatPathResult(label, path) {
+    let totalDistance = 0, totalTime = 0;
+    let detailsHtml = '';
+
+    for (let i = 0; i < path.length - 1; i++) {
+    let info = getSegmentInfo(path[i], path[i+1]);
+    totalDistance += info.distance;
+    totalTime += info.time;
+    detailsHtml += `${path[i]} → ${path[i+1]}：${info.distance.toFixed(0)}米，<span class="time-display">${formatTime(info.time)}</span><br>`;
     }
 
-    function clearSelection() {
-      selectedStart = "";
-      selectedEnd = "";
-      travelMode = "";
-      
-      document.getElementById("start-btn").textContent = "选择起点";
-      document.getElementById("end-btn").textContent = "选择终点";
-      document.getElementById("travel-mode-btn").textContent = "出行方式";
-      
-      updateResult();
-      clearCanvas();
-      document.getElementById("segment-info").innerHTML = "";
-      clearError();
-    }
+    const randomId = Math.random().toString(36).substr(2, 9);
 
-    // 查找并显示路径
-    // 修改后的findRoute函数
-    function findRoute() {
-      clearError();
-      
-      if (!selectedStart) {
-        showError("请选择起点");
-        return;
-      }
-      
-      if (!selectedEnd) {
-        showError("请选择终点");
-        return;
-      }
+    return `
+    <div class="path-result">
+      <strong>${label}:</strong> ${path.join(" → ")}<br>
+      总距离: ${totalDistance.toFixed(0)}米，总时长: <span class="time-display">${formatTime(totalTime)}</span>
+      <button class="toggle-detail" onclick="toggleDetails('${randomId}')">显示详情</button>
+      <div id="${randomId}" class="path-details">
+      ${detailsHtml}
+      </div>
+    </div>
+    `;
+  }
 
-      let bestPath = dijkstraPath(selectedStart, selectedEnd);
-      let secondPath = secondShortestPath(selectedStart, selectedEnd);
-      
-      if (bestPath) {
-        let resultHTML = formatPathResult("最快路径", bestPath);
-        
-        if (secondPath) {
-          resultHTML += formatPathResult("第二快路径", secondPath);
-        }
-        
-        document.getElementById("result").innerHTML = resultHTML;
-        drawRoute(bestPath, secondPath);
-      } else {
-        document.getElementById("result").innerHTML = "无法到达";
-        clearCanvas();
-      }
-      document.getElementById("segment-info").innerHTML = "";
+  // 新增详情切换函数
+  function toggleDetails(id) {
+    const details = document.getElementById(id);
+    const button = details.previousElementSibling;
+    if (details.style.display === 'none') {
+    details.style.display = 'block';
+    button.textContent = '隐藏详情';
+    } else {
+    details.style.display = 'none';
+    button.textContent = '显示详情';
     }
+  }
 
-    // 修改时间格式化函数
-    function formatTime(seconds) {
-      const mins = Math.floor(seconds / 60);
-      const secs = Math.floor(seconds % 60);
-      if(mins) {
-        return `${mins}分${secs.toString().padStart(2, '0')}秒`;
-      }
-      return `${secs.toString().padStart(2, '0')}秒`;
-    }
-     // 修改路径结果显示函数
-     function formatPathResult(label, path) {
-      let totalDistance = 0, totalTime = 0;
-      let detailsHtml = '';
-      
-      for (let i = 0; i < path.length - 1; i++) {
-        let info = getSegmentInfo(path[i], path[i+1]);
-        totalDistance += info.distance;
-        totalTime += info.time;
-        detailsHtml += `${path[i]} → ${path[i+1]}：${info.distance.toFixed(0)}米，<span class="time-display">${formatTime(info.time)}</span><br>`;
-      }
+  // 错误处理函数
+  function showError(message) {
+    const errorDiv = document.getElementById("error-messages");
+    errorDiv.innerHTML = `<div class="error-message">${message}</div>`;
+  }
 
-      const randomId = Math.random().toString(36).substr(2, 9);
-      
-      return `
-        <div class="path-result">
-          <strong>${label}:</strong> ${path.join(" → ")}<br>
-          总距离: ${totalDistance.toFixed(0)}米，总时长: <span class="time-display">${formatTime(totalTime)}</span>
-          <button class="toggle-detail" onclick="toggleDetails('${randomId}')">显示详情</button>
-          <div id="${randomId}" class="path-details">
-            ${detailsHtml}
-          </div>
-        </div>
-      `;
-    }
+  function clearError() {
+    document.getElementById("error-messages").innerHTML = "";
+  }
 
-    // 新增详情切换函数
-    function toggleDetails(id) {
-      const details = document.getElementById(id);
-      const button = details.previousElementSibling;
-      if (details.style.display === 'none') {
-        details.style.display = 'block';
-        button.textContent = '隐藏详情';
-      } else {
-        details.style.display = 'none';
-        button.textContent = '显示详情';
-      }
-    }
-
-    // 错误处理函数
-    function showError(message) {
-      const errorDiv = document.getElementById("error-messages");
-      errorDiv.innerHTML = `<div class="error-message">${message}</div>`;
-    }
-
-    function clearError() {
-      document.getElementById("error-messages").innerHTML = "";
-    }
-
-    // 切换路口节点显示
-    function toggleIntersections() {
-      intersectionsVisible = !intersectionsVisible;
-      const intersectionElems = document.querySelectorAll(".intersection-marker");
-      intersectionElems.forEach(elem => {
-        elem.style.display = intersectionsVisible ? "block" : "none";
-      });
-    }
+  // 切换路口节点显示
+  function toggleIntersections() {
+    intersectionsVisible = !intersectionsVisible;
+    const intersectionElems = document.querySelectorAll(".intersection-marker");
+    intersectionElems.forEach(elem => {
+    elem.style.display = intersectionsVisible ? "block" : "none";
+    });
+  }
   </script>
+
+<!-- Tooltip 容器 -->
+<div id="tooltip" class="tooltip"></div>
+<script>
+  const tooltip = document.getElementById('tooltip');
+
+  document.querySelectorAll('.marker').forEach(marker => {
+    const key = marker.getAttribute('onclick')?.match(/'([^']+)'/);
+    if (!key) return;
+
+    const nameMap = {
+      "Dorm4": "第四宿舍（Dorm4）",
+      "Teach1": "第一教学楼（Teach1）",
+      "Teach2": "第二教学楼（Teach2）",
+      "Teach5": "第五教学楼（Teach5）",
+      "LibraryW": "西区图书馆（LibraryW）",
+      "Teach3": "第三教学楼（Teach3）",
+      "PlaygroundW": "西区操场（PlaygroundW）",
+      "PlaygroundE": "东区操场（PlaygroundE）",
+      "Force3": "力三楼（Force3）",
+      "FangHua": "芳华苑（FangHua）",
+      "HallE": "东区礼堂（HallE）",
+      "WuzhiB": "物理综合楼B座（WuzhiB）"
+    };
+
+    const fullName = nameMap[key[1]];
+    if (!fullName) return;
+
+    marker.addEventListener('mouseenter', (e) => {
+      tooltip.innerText = fullName;
+      const rect = marker.getBoundingClientRect();
+      tooltip.style.left = rect.left + rect.width / 2 + 'px';
+      tooltip.style.top = rect.top + window.scrollY + 'px';
+      tooltip.style.display = 'block';
+    });
+    marker.addEventListener('mouseleave', () => {
+      tooltip.style.display = 'none';
+    });
+  });
+</script>
+
+
+<!-- 添加 SVG 覆盖层用于路径动画 -->
+<svg id="pathOverlay" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:5;"></svg>
+
+<script>
+  const mapContainer = document.getElementById('map-container');
+  const overlay = document.getElementById('pathOverlay');
+  const originalDrawRoute = window.drawRoute;
+
+  function mapPercentToPixels(percentX, percentY) {
+    const mapRect = document.getElementById('map').getBoundingClientRect();
+    return {
+      x: mapRect.left + mapRect.width * (percentX / 100),
+      y: mapRect.top + mapRect.height * (percentY / 100)
+    };
+  }
+
+  window.drawRoute = function(path, mode) {
+    if (originalDrawRoute) originalDrawRoute(path, mode); // 保留原有 canvas 绘图
+
+    // 清除旧路径
+    overlay.innerHTML = "";
+
+    // 获取每段路径的坐标点
+    for (let i = 0; i < path.length - 1; i++) {
+      const cnt=30.6;
+      const a = nodeCoordinates[path[i]];
+      const b = nodeCoordinates[path[i + 1]];
+      if (!a || !b) continue;
+
+      const start = mapPercentToPixels(a.left, a.top + cnt);
+      const end = mapPercentToPixels(b.left, b.top + cnt);
+
+      const pathElem = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      pathElem.setAttribute("d", `M${start.x},${start.y} L${end.x},${end.y}`);
+      pathElem.setAttribute("class", "animated-path");
+      pathElem.setAttribute("stroke", mode === 'walk' ? "#28a745" : "#007bff");
+      overlay.appendChild(pathElem);
+    }
+  };
+</script>
+
 </body>
 </html>
